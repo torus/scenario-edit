@@ -50,7 +50,7 @@
      (script (@ (async "async") (defer "defer") (crossorigin "anonymous")
                 (src "https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v3.3&appId=468063727261207&autoLogAppEvents=1")) "")
      (nav (@ (class "navbar navbar-expand-md navbar-dark bg-dark fixed-top"))
-          (a (@ (href "#") (class "navbar-brand")) "Favorite Games")
+          (a (@ (href "#") (class "navbar-brand")) "Scenario Editor")
           (button
            (@
             (type "button")
@@ -137,7 +137,13 @@
                                (sxml:sxml->html
                                 (create-page
                                  (map (^n `(pre ,(x->string n))) nums)
+                                 )))))))))
 
+(define-http-handler "/login"
+  (^[req app]
+	(respond/ok req (cons "<!DOCTYPE html>"
+                               (sxml:sxml->html
+                                (create-page
                                  '(div (@ (class "fb-login-button")
                                           (onlogin "onlogin")
                                           (data-width "")
@@ -146,6 +152,6 @@
                                           (data-auto-logout-link "false")
                                           (data-use-continue-as "false")))
 
-                                 )))))))))
+                                 ))))))
 
 (define-http-handler #/^\/static\// (file-handler))
