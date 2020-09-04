@@ -21,95 +21,13 @@
     (@ (lang "en"))
     (head
      (meta (@ (charset "utf-8")))
-     (meta (@ (name "viewport") (content "width=device-width, initial-scale=1, shrink-to-fit=no")))
-     (meta (@ (name "description") (content "")))
-     (meta (@ (name "author") (content "Mark Otto, Jacob Thornton, and Bootstrap contributors")))
+     (meta (@ (name "viewport") (content "width=device-width, initial-scale=1")))
      (title "Starter Template · Bootstrap")
-     (link (@
-            (rel "stylesheet")
-            (integrity "sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T")
-            (href "https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css")
-            (crossorigin "anonymous")))
-     (style
-         (string-append
-          ".bd-placeholder-img {"
-          "  font-size: 1.125rem;"
-          "  text-anchor: middle;"
-          "  -webkit-user-select: none;"
-          "  -moz-user-select: none;"
-          "  -ms-user-select: none;"
-          "  user-select: none;"
-          "}"
-          "@media (min-width: 768px) {"
-          "  .bd-placeholder-img-lg {"
-          "    font-size: 3.5rem;"
-          "  }"
-          "}"
-          ))
-     (link (@ (rel "stylesheet") (href "/static/starter-template.css"))))
+     (link (@ (rel "stylesheet")
+              (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css"))))
     (body
-     (div (@ (id "fb-root")) "")
-     (script (@ (async "async") (defer "defer") (crossorigin "anonymous")
-                (src "https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v3.3&appId=468063727261207&autoLogAppEvents=1")) "")
-     (nav (@ (class "navbar navbar-expand-md navbar-dark bg-dark fixed-top"))
-          (a (@ (href "#") (class "navbar-brand")) "Scenario Editor")
-          (button
-           (@
-            (type "button")
-            (data-toggle "collapse")
-            (data-target "#navbarsExampleDefault")
-            (class "navbar-toggler")
-            (aria-label "Toggle navigation")
-            (aria-expanded "false")
-            (aria-controls "navbarsExampleDefault"))
-           (span (@ (class "navbar-toggler-icon"))))
-          (div (@ (id "navbarsExampleDefault") (class "collapse navbar-collapse"))
-               (ul (@ (class "navbar-nav mr-auto"))
-                   (li (@ (class "nav-item active"))
-                       (a (@ (href "#") (class "nav-link"))
-                          "Home " (span (@ (class "sr-only")) "(current)")))
-                   (li (@ (class "nav-item")) (a (@ (href "#") (class "nav-link")) "Link"))
-                   (li (@ (class "nav-item"))
-                       (a (@
-                           (tabindex "-1") (href "#") (class "nav-link disabled")
-                           (aria-disabled "true"))
-                          "Disabled"))
-                   (li (@ (class "nav-item dropdown"))
-                       (a (@ (id "dropdown01") (href "#")
-                             (data-toggle "dropdown")
-                             (class "nav-link dropdown-toggle")
-                             (aria-haspopup "true")
-                             (aria-expanded "false"))
-                          "Dropdown")
-                       (div (@ (class "dropdown-menu") (aria-labelledby "dropdown01"))
-                            (a (@ (href "#") (class "dropdown-item")) "Action")
-                            (a (@ (href "#") (class "dropdown-item")) "Another action")
-                            (a (@ (href "#") (class "dropdown-item")) "Something else here"))))
-               (form
-                (@ (class "form-inline my-2 my-lg-0"))
-                (input (@ (type "text") (placeholder "Search") (class "form-control mr-sm-2")
-                          (aria-label "Search")))
-                (button (@ (type "submit") (class "btn btn-secondary my-2 my-sm-0"))
-                        "Search"))))
-     (main
-      (@ (role "main") (class "container"))
-      ,@children)
-     (script (@ (src "/static/script.js")) "")
-     (script (@
-              (src "https://code.jquery.com/jquery-3.3.1.slim.min.js")
-              (integrity "sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo")
-              (crossorigin "anonymous"))
-             "")
-     (script (@
-              (src "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js")
-              (integrity "sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1")
-              (crossorigin "anonymous"))
-             "")
-     (script (@
-              (src "https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js")
-              (integrity "sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM")
-              (crossorigin "anonymous"))
-             "")))
+     ,@children
+     ))
   )
 
 
@@ -130,25 +48,35 @@
       (^()
         (let ((content (parse-json)))
           (reverse
-              (fold (^[conv rest]
-                      (cons (let ((label (cdr (assoc "label" conv)))
-                                  (lines (cdr (assoc "lines" conv))))
-                              `(div (@ (class "row"))
-                                    ((h4 ,label)
+           (fold (^[conv rest]
+                   (define (get name)
+                     (cdr (assoc name conv)))
+                   (cons (let ((label (get "label"))
+                               (lines (get "lines")))
+                           `(section (@ (class "section"))
+                                     (div (@ (class "columns"))
+                                          ((div (@ (class "column is-half"))
+                                                (h4 (@ (class "title is-4")) ,label))
+                                           (div (@ (class "column is-half"))
+                                                (p ,(get "section")))))
                                      (ul
                                       ,(reverse
                                         (fold (^[line rest]
                                                 (let ((char (cdr (assoc "character" line)))
                                                       (text (cdr (assoc "text" line))))
-                                                  (cons `(li ,char ": ", text) rest)))
+                                                  (cons `(div (@ (class "columns"))
+                                                              (div (@ (class "column is-one-fifth has-text-right"))
+                                                                   ,char)
+                                                              (div (@ (class "column"))
+                                                                   ,text))
+                                                        rest)))
                                               () lines)))
-                                     )))
-                            rest)
+                                     ))
+                         rest)
                       )
-                    () content))
+                 () content))
           ))
       )
-
     ))
 
 (define-http-handler #/^\/scenarios\/(\d+)/
