@@ -1,5 +1,7 @@
 (use gauche.threads)
+(use gauche.collection)
 (use rfc.http)
+(use rfc.json)
 
 (use sxml.tools)
 
@@ -111,33 +113,63 @@
   )
 
 
-
-(define (get-random)
-  (call-with-input-file "/dev/random"
-    (^p
-     (let* ((ch (read-char p))
-            (result (if (char? ch)
-                        (let ((num (char->integer ch)))
-                          (thread-sleep! (/ num 1000))
-                          num)
-                        (x->string ch))))
-       result))))
-
 (define-http-handler "/"
   (^[req app]
     (violet-async
      (^[await]
-       (let* ((count (let ((n (await get-random))) (if (integer? n) (modulo n 5) 1)))
-              (nums (let loop ((count count) (dest ()))
-                      (if (zero? count)
-                          dest
-                          (loop (- count 1)
-                                (cons (await get-random) dest))))))
-         (respond/ok req (cons "<!DOCTYPE html>"
+       (respond/ok req (cons "<!DOCTYPE html>"
                                (sxml:sxml->html
                                 (create-page
-                                 (map (^n `(pre ,(x->string n))) nums)
-                                 )))))))))
+                                 `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1")))
+                                 ))))
+       ))))
+
+(define (read-scenario-file id)
+  (let ((filename #"data/~|id|.json"))
+    (with-input-from-file filename
+      (^()
+        (let ((content (parse-json)))
+          (reverse
+              (fold (^[conv rest]
+                      (cons (let ((label (cdr (assoc "label" conv)))
+                                  (lines (cdr (assoc "lines" conv))))
+                              `(div (@ (class "row"))
+                                    ((h4 ,label)
+                                     (ul
+                                      ,(reverse
+                                        (fold (^[line rest]
+                                                (let ((char (cdr (assoc "character" line)))
+                                                      (text (cdr (assoc "text" line))))
+                                                  (cons `(li ,char ": ", text) rest)))
+                                              () lines)))
+                                     )))
+                            rest)
+                      )
+                    () content))
+          ))
+      )
+
+    ))
+
+(define-http-handler #/^\/scenarios\/(\d+)/
+  (^[req app]
+    (violet-async
+     (^[await]
+       (let-params req ([id "p:1"])
+                   (let ((rendered (read-scenario-file id)))
+                     (write rendered)
+                     (respond/ok req (cons "<!DOCTYPE html>"
+                                           (sxml:sxml->html
+                                            (create-page
+                                             rendered
+                                             )))))
+                   
+                   )
+
+
+       ))
+    ))
+
 
 (define-http-handler "/login"
   (^[req app]
