@@ -42,42 +42,42 @@
                                  ))))
        ))))
 
+(define (render-line char text)
+  `(div (@ (class "columns"))
+        (div (@ (class "column is-one-fifth has-text-right"))
+             ,char)
+        (div (@ (class "column"))
+             ,text)))
+
+(define (render-conversation conv)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+  (let ((label (get "label"))
+        (lines (get "lines")))
+    `(section (@ (class "section"))
+              (div (@ (class "columns"))
+                   ((div (@ (class "column is-half"))
+                         (h4 (@ (class "title is-4")) ,label))
+                    (div (@ (class "column is-half"))
+                         (p ,(get "section")))))
+              (ul
+               ,(reverse
+                 (fold (^[line rest]
+                         (let ((char (cdr (assoc "character" line)))
+                               (text (cdr (assoc "text" line))))
+                           (cons (render-line char text)
+                                 rest)))
+                       () lines))))))
+
 (define (read-scenario-file id)
   (let ((filename #"data/~|id|.json"))
     (with-input-from-file filename
       (^()
         (let ((content (parse-json)))
           (reverse
-           (fold (^[conv rest]
-                   (define (get name)
-                     (cdr (assoc name conv)))
-                   (cons (let ((label (get "label"))
-                               (lines (get "lines")))
-                           `(section (@ (class "section"))
-                                     (div (@ (class "columns"))
-                                          ((div (@ (class "column is-half"))
-                                                (h4 (@ (class "title is-4")) ,label))
-                                           (div (@ (class "column is-half"))
-                                                (p ,(get "section")))))
-                                     (ul
-                                      ,(reverse
-                                        (fold (^[line rest]
-                                                (let ((char (cdr (assoc "character" line)))
-                                                      (text (cdr (assoc "text" line))))
-                                                  (cons `(div (@ (class "columns"))
-                                                              (div (@ (class "column is-one-fifth has-text-right"))
-                                                                   ,char)
-                                                              (div (@ (class "column"))
-                                                                   ,text))
-                                                        rest)))
-                                              () lines)))
-                                     ))
-                         rest)
-                      )
-                 () content))
-          ))
-      )
-    ))
+           (fold (^[conv rest] (cons (render-conversation conv) rest))
+                 () content)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)/
   (^[req app]
