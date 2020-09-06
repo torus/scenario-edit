@@ -51,7 +51,7 @@
         (div (@ (class "column"))
              ,text)))
 
-(define (render-conversation conv)
+(define (render-conversation conv data-id)
   (define (get name)
     (cdr (assoc name conv)))
 
@@ -60,21 +60,20 @@
     `(section (@ (class "section"))
               (div (@ (class "columns is-vcentered"))
                    (div (@ (class "column is-1"))
-                        (button (@ (class "button"))
-                                (span (@ (class "icon"))
-                                      (i (@ (Class "fas fa-edit")) ""))))
+                        (a (@ (class "button")
+                              (href ,#"/scenarios/~|data-id|/edit/~label"))
+                           (span (@ (class "icon"))
+                                 (i (@ (Class "fas fa-edit")) ""))))
                    (div (@ (class "column is-one-third"))
                         (h4 (@ (class "title is-4")) ,label))
                    (div (@ (class "column"))
-                         (p ,(get "section"))))
+                        (p ,(get "section"))))
               ,(reverse
-                 (fold (^[line rest]
-                         (let ((char (cdr (assoc "character" line)))
-                               (text (cdr (assoc "text" line))))
-                           (cons (render-line char text)
-                                 rest)))
-                       () lines))
-              )))
+                (fold (^[line rest]
+                        (let ((char (cdr (assoc "character" line)))
+                              (text (cdr (assoc "text" line))))
+                          (cons (render-line char text) rest)))
+                      () lines)))))
 
 (define (add-conversation-button)
   `(div (@ (class "columns"))
@@ -91,7 +90,7 @@
           (reverse
            (fold (^[conv rest]
                    (cons (add-conversation-button)
-                         (cons (render-conversation conv) rest)))
+                         (cons (render-conversation conv id) rest)))
                  (list (add-conversation-button))
                  content)))))))
 
