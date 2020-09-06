@@ -24,7 +24,9 @@
      (meta (@ (name "viewport") (content "width=device-width, initial-scale=1")))
      (title "Starter Template · Bootstrap")
      (link (@ (rel "stylesheet")
-              (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css"))))
+              (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css")))
+     (script (@ (src "https://kit.fontawesome.com/515fd4f349.js")
+                (crossorigin "anonymous")) ""))
     (body
      ,@children
      ))
@@ -57,18 +59,25 @@
         (lines (get "lines")))
     `(section (@ (class "section"))
               (div (@ (class "columns"))
-                   ((div (@ (class "column is-half"))
+                   (div (@ (class "column is-half"))
                          (h4 (@ (class "title is-4")) ,label))
                     (div (@ (class "column is-half"))
-                         (p ,(get "section")))))
-              (ul
-               ,(reverse
+                         (p ,(get "section"))))
+              ,(reverse
                  (fold (^[line rest]
                          (let ((char (cdr (assoc "character" line)))
                                (text (cdr (assoc "text" line))))
                            (cons (render-line char text)
                                  rest)))
-                       () lines))))))
+                       () lines))
+              )))
+
+(define (add-conversation-button)
+  `(div (@ (class "columns"))
+        (div (@ (class "column has-text-centered"))
+             (button (@ (class "button"))
+                     (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
+                     ))))
 
 (define (read-scenario-file id)
   (let ((filename #"data/~|id|.json"))
@@ -76,8 +85,11 @@
       (^()
         (let ((content (parse-json)))
           (reverse
-           (fold (^[conv rest] (cons (render-conversation conv) rest))
-                 () content)))))))
+           (fold (^[conv rest]
+                   (cons (add-conversation-button)
+                         (cons (render-conversation conv) rest)))
+                 (list (add-conversation-button))
+                 content)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)/
   (^[req app]
@@ -85,7 +97,6 @@
      (^[await]
        (let-params req ([id "p:1"])
                    (let ((rendered (read-scenario-file id)))
-                     (write rendered)
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
