@@ -58,10 +58,14 @@
   (let ((label (get "label"))
         (lines (get "lines")))
     `(section (@ (class "section"))
-              (div (@ (class "columns"))
-                   (div (@ (class "column is-half"))
-                         (h4 (@ (class "title is-4")) ,label))
-                    (div (@ (class "column is-half"))
+              (div (@ (class "columns is-vcentered"))
+                   (div (@ (class "column is-1"))
+                        (button (@ (class "button"))
+                                (span (@ (class "icon"))
+                                      (i (@ (Class "fas fa-edit")) ""))))
+                   (div (@ (class "column is-one-third"))
+                        (h4 (@ (class "title is-4")) ,label))
+                   (div (@ (class "column"))
                          (p ,(get "section"))))
               ,(reverse
                  (fold (^[line rest]
