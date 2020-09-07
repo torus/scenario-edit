@@ -58,22 +58,76 @@
   (let ((label (get "label"))
         (lines (get "lines")))
     `(section (@ (class "section"))
-              (div (@ (class "columns is-vcentered"))
-                   (div (@ (class "column is-1"))
-                        (a (@ (class "button")
-                              (href ,#"/scenarios/~|data-id|/edit/~label"))
-                           (span (@ (class "icon"))
-                                 (i (@ (Class "fas fa-edit")) ""))))
-                   (div (@ (class "column is-one-third"))
-                        (h4 (@ (class "title is-4")) ,label))
-                   (div (@ (class "column"))
-                        (p ,(get "section"))))
-              ,(reverse
-                (fold (^[line rest]
-                        (let ((char (cdr (assoc "character" line)))
-                              (text (cdr (assoc "text" line))))
-                          (cons (render-line char text) rest)))
-                      () lines)))))
+              (div (@ (class "container"))
+                   (div (@ (class "columns is-vcentered"))
+                        (div (@ (class "column is-1"))
+                             (a (@ (class "button")
+                                   (href ,#"/scenarios/~|data-id|/edit/~label"))
+                                (span (@ (class "icon"))
+                                      (i (@ (Class "fas fa-edit")) ""))))
+                        (div (@ (class "column is-one-third"))
+                             (h4 (@ (class "title is-4")) ,label))
+                        (div (@ (class "column"))
+                             (p ,(get "section"))))
+                   ,(reverse
+                     (fold (^[line rest]
+                             (let ((char (cdr (assoc "character" line)))
+                                   (text (cdr (assoc "text" line))))
+                               (cons (render-line char text) rest)))
+                           () lines))))))
+
+(define (not-empty? str) (and str (not (zero? (string-length str)))))
+
+(define (form-field label help input)
+  `(div (@ (class "field"))
+        ,(if (not-empty? label) `(label (@ (class "label")) ,label) ())
+        (div (@ (class "control")) ,input)
+        ,(if (not-empty? help) `(p (@ (class "help")) ,help) ())))
+
+
+(define (render-line-form char text)
+  `(div (@ (class "columns"))
+        (div (@ (class "column is-one-fifth has-text-right"))
+             (input (@ (class "input") (type "text") (placeholder "キャラクター")
+                       (value ,char))))
+        (div (@ (class "column"))
+             (input (@ (class "input") (type "text") (placeholder "セリフ")
+                       (value ,text))))))
+
+(define (render-conversation-form conv data-id)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+  (let ((label (get "label"))
+        (lines (get "lines")))
+    `(section (@ (class "section"))
+              (div (@ (class "container"))
+                   (form
+                    (div (@ (class "columns"))
+                         (div (@ (class "column is-one-third"))
+                              ,(form-field "会話 ID" "他の会話と ID が重複しないようにしてください。"
+                                           `(input (@ (class "input")
+                                                      (type "text")
+                                                      (placeholder "会話 ID")
+                                                      (value ,label)))))
+                         (div (@ (class "column"))
+                              ,(form-field "場所" #f
+                                           `(input (@ (class "input") (type "text")
+                                                      (placeholder "場所")
+                                                      (value ,(get "section")))))))
+                    ,(reverse
+                      (fold (^[line rest]
+                              (let ((char (cdr (assoc "character" line)))
+                                    (text (cdr (assoc "text" line))))
+                                (cons (render-line-form char text) rest)))
+                            () lines))
+                    (div (@ (class "field is-grouped is-grouped-right"))
+                         (p (@ (class "control"))
+                            (button (@ (class "button is-primary")) "更新"))
+                         (p (@ (class "control"))
+                            (a (@ (class "button is-light")
+                                  (href ,#"/scenarios/~data-id"))
+                               "キャンセル"))))))))
 
 (define (add-conversation-button)
   `(div (@ (class "columns"))
@@ -82,7 +136,7 @@
                      (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
                      ))))
 
-(define (read-scenario-file id)
+(define (read-and-render-scenario-file id)
   (let ((filename #"data/~|id|.json"))
     (with-input-from-file filename
       (^()
@@ -94,12 +148,28 @@
                  (list (add-conversation-button))
                  content)))))))
 
-(define-http-handler #/^\/scenarios\/(\d+)/
+(define (read-and-render-scenario-file/edit id label-to-edit)
+  #?=label-to-edit
+  (let ((filename #"data/~|id|.json"))
+    (with-input-from-file filename
+      (^()
+        (let ((content (parse-json)))
+          (reverse
+           (fold (^[conv rest]
+                   (let ((label (cdr (assoc "label" conv))))
+                     (cons (if (string=? #?=label #?=label-to-edit)
+                               (render-conversation-form conv id)
+                               (render-conversation conv id))
+                           rest)))
+                 ()
+                 content)))))))
+
+(define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
     (violet-async
      (^[await]
        (let-params req ([id "p:1"])
-                   (let ((rendered (read-scenario-file id)))
+                   (let ((rendered (read-and-render-scenario-file id)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
@@ -112,6 +182,24 @@
        ))
     ))
 
+(define-http-handler #/^\/scenarios\/(\d+)\/edit\/(.*)/
+  (^[req app]
+    (violet-async
+     (^[await]
+       (let-params req ([id "p:1"]
+                        [label "p:2"])
+                   (let ((rendered (read-and-render-scenario-file/edit id label)))
+                     (respond/ok req (cons "<!DOCTYPE html>"
+                                           (sxml:sxml->html
+                                            (create-page
+                                             rendered
+                                             )))))
+                   
+                   )
+
+
+       ))
+    ))
 
 (define-http-handler "/login"
   (^[req app]
