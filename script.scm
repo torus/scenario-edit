@@ -29,7 +29,7 @@
                 (crossorigin "anonymous")) ""))
     (body
      ,@children
-     ))
+     (script (@ (src "/static/script.js")) "")))
   )
 
 
@@ -106,12 +106,12 @@
 
 
 (define (render-line-form char text)
-  `(div (@ (class "columns"))
+  `(div (@ (class "columns line-form"))
         (div (@ (class "column is-one-fifth has-text-right"))
-             (input (@ (class "input") (type "text") (placeholder "キャラクター")
+             (input (@ (class "input character-input") (type "text") (placeholder "キャラクター")
                        (value ,char))))
         (div (@ (class "column"))
-             (input (@ (class "input") (type "text") (placeholder "セリフ")
+             (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
                        (value ,text))))))
 
 (define (render-conversation-form conv data-id)
@@ -123,18 +123,25 @@
     `(section (@ (class "section")
                  (id "form"))
               (div (@ (class "container"))
-                   (form (@ (method "post")
-                            (action ,#"/scenarios/~|data-id|/submit"))
+                   (form (@ (id "edit-form")
+                            (action ,#"/scenarios/~|data-id|/submit")
+                            (method "post"))
+                         (input (@ (id "original-label-input")
+                                   (type "hidden")
+                                   (value ,label)))
                          (div (@ (class "columns"))
                               (div (@ (class "column is-one-third"))
-                                   ,(form-field "会話 ID" "他の会話と ID が重複しないようにしてください。"
+                                   ,(form-field "会話 ID"
+                                                "他の会話と ID が重複しないようにしてください。"
                                                 `(input (@ (class "input")
+                                                           (id "label-input")
                                                            (type "text")
                                                            (placeholder "会話 ID")
                                                            (value ,label)))))
                               (div (@ (class "column"))
                                    ,(form-field "場所" #f
                                                 `(input (@ (class "input") (type "text")
+                                                           (id "location-input")
                                                            (placeholder "場所")
                                                            (value ,(get "section")))))))
                          ,(reverse
@@ -171,7 +178,6 @@
                  content)))))))
 
 (define (read-and-render-scenario-file/edit id label-to-edit)
-  #?=label-to-edit
   (let ((filename #"data/~|id|.json"))
     (with-input-from-file filename
       (^()
@@ -179,7 +185,7 @@
           (reverse
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
-                     (cons (if (string=? #?=label #?=label-to-edit)
+                     (cons (if (string=? label label-to-edit)
                                (render-conversation-form conv id)
                                (render-conversation conv id))
                            rest)))
@@ -223,13 +229,18 @@
        ))
     ))
 
+(define (update-with-json data-id json)
+  (let ((form-data (parse-json-string json)))
+    (write #?=form-data)))
+
 (define-http-handler #/^\/scenarios\/(\d+)\/submit/
   (with-post-parameters
    (^[req app]
      (violet-async
       (^[await]
-        (let-params req ([id "p:1"])
-                    (let ()
+        (let-params req ([id "p:1"]
+                         [json "q"])
+                    (let ((result (await (^[] (update-with-json id json)))))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define-http-handler "/login"
