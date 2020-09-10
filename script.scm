@@ -51,7 +51,7 @@
         (div (@ (class "column"))
              ,text)))
 
-(define (render-conversation conv data-id)
+(define (render-conversation/edit-button conv data-id)
   (define (get name)
     (cdr (assoc name conv)))
 
@@ -62,9 +62,29 @@
                    (div (@ (class "columns is-vcentered"))
                         (div (@ (class "column is-1"))
                              (a (@ (class "button")
-                                   (href ,#"/scenarios/~|data-id|/edit/~label"))
+                                   (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
                                 (span (@ (class "icon"))
                                       (i (@ (Class "fas fa-edit")) ""))))
+                        (div (@ (class "column is-one-third"))
+                             (h4 (@ (class "title is-4")) ,label))
+                        (div (@ (class "column"))
+                             (p ,(get "section"))))
+                   ,(reverse
+                     (fold (^[line rest]
+                             (let ((char (cdr (assoc "character" line)))
+                                   (text (cdr (assoc "text" line))))
+                               (cons (render-line char text) rest)))
+                           () lines))))))
+
+(define (render-conversation conv data-id)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+  (let ((label (get "label"))
+        (lines (get "lines")))
+    `(section (@ (class "section"))
+              (div (@ (class "container"))
+                   (div (@ (class "columns is-vcentered"))
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
@@ -100,34 +120,36 @@
 
   (let ((label (get "label"))
         (lines (get "lines")))
-    `(section (@ (class "section"))
+    `(section (@ (class "section")
+                 (id "form"))
               (div (@ (class "container"))
-                   (form
-                    (div (@ (class "columns"))
-                         (div (@ (class "column is-one-third"))
-                              ,(form-field "会話 ID" "他の会話と ID が重複しないようにしてください。"
-                                           `(input (@ (class "input")
-                                                      (type "text")
-                                                      (placeholder "会話 ID")
-                                                      (value ,label)))))
-                         (div (@ (class "column"))
-                              ,(form-field "場所" #f
-                                           `(input (@ (class "input") (type "text")
-                                                      (placeholder "場所")
-                                                      (value ,(get "section")))))))
-                    ,(reverse
-                      (fold (^[line rest]
-                              (let ((char (cdr (assoc "character" line)))
-                                    (text (cdr (assoc "text" line))))
-                                (cons (render-line-form char text) rest)))
-                            () lines))
-                    (div (@ (class "field is-grouped is-grouped-right"))
-                         (p (@ (class "control"))
-                            (button (@ (class "button is-primary")) "更新"))
-                         (p (@ (class "control"))
-                            (a (@ (class "button is-light")
-                                  (href ,#"/scenarios/~data-id"))
-                               "キャンセル"))))))))
+                   (form (@ (method "post")
+                            (action ,#"/scenarios/~|data-id|/submit"))
+                         (div (@ (class "columns"))
+                              (div (@ (class "column is-one-third"))
+                                   ,(form-field "会話 ID" "他の会話と ID が重複しないようにしてください。"
+                                                `(input (@ (class "input")
+                                                           (type "text")
+                                                           (placeholder "会話 ID")
+                                                           (value ,label)))))
+                              (div (@ (class "column"))
+                                   ,(form-field "場所" #f
+                                                `(input (@ (class "input") (type "text")
+                                                           (placeholder "場所")
+                                                           (value ,(get "section")))))))
+                         ,(reverse
+                           (fold (^[line rest]
+                                   (let ((char (cdr (assoc "character" line)))
+                                         (text (cdr (assoc "text" line))))
+                                     (cons (render-line-form char text) rest)))
+                                 () lines))
+                         (div (@ (class "field is-grouped is-grouped-right"))
+                              (p (@ (class "control"))
+                                 (button (@ (class "button is-primary")) "更新"))
+                              (p (@ (class "control"))
+                                 (a (@ (class "button is-light")
+                                       (href ,#"/scenarios/~data-id"))
+                                    "キャンセル"))))))))
 
 (define (add-conversation-button)
   `(div (@ (class "columns"))
@@ -144,7 +166,7 @@
           (reverse
            (fold (^[conv rest]
                    (cons (add-conversation-button)
-                         (cons (render-conversation conv id) rest)))
+                         (cons (render-conversation/edit-button conv id) rest)))
                  (list (add-conversation-button))
                  content)))))))
 
@@ -200,6 +222,15 @@
 
        ))
     ))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/submit/
+  (with-post-parameters
+   (^[req app]
+     (violet-async
+      (^[await]
+        (let-params req ([id "p:1"])
+                    (let ()
+                      (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define-http-handler "/login"
   (^[req app]
