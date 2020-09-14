@@ -182,7 +182,7 @@
                      ))))
 
 (define (read-and-render-scenario-file id)
-  (let ((filename #"data/~|id|.json"))
+  (let ((filename (json-file-path id)))
     (with-input-from-file filename
       (^()
         (let ((content (parse-json)))
@@ -193,8 +193,11 @@
                  (list (add-conversation-button))
                  content)))))))
 
+(define (json-file-path data-id)
+  #"data/~|data-id|.json")
+
 (define (read-and-render-scenario-file/edit id label-to-edit)
-  (let ((filename #"data/~|id|.json"))
+  (let ((filename (json-file-path id)))
     (with-input-from-file filename
       (^()
         (let ((content (parse-json)))
