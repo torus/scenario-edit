@@ -120,10 +120,10 @@
 (define (render-conversation-form conv data-id)
   (define (get name)
     (cdr (assoc name conv)))
-  (define (value-and-selected type selected)
+  (define (value-and-selected selected type)
     (if (string=? type selected)
-        (list '(value type) '(selected "selected"))
-        (list '(value type))))
+        `((value ,type) (selected "selected"))
+        `((value ,type))))
 
   (let ((label (get "label"))
         (lines (get "lines"))
@@ -140,11 +140,10 @@
                          (div (@ (class "columns"))
                               (div (@ (class "column is-2"))
                                    ,(form-field "タイプ" #f
-                                                `(div (@ (class "select")
-                                                        (id "type-input"))
-                                                      (select
-                                                       (option (@ ,@(value-and-selected type "conversation")) "会話")
-                                                       (option (@ ,@(value-and-selected type "message")) "メッセージ")))
+                                                `(div (@ (class "select"))
+                                                      (select (@ (id "type-input"))
+                                                              (option (@ ,@(value-and-selected type "conversation")) "会話")
+                                                              (option (@ ,@(value-and-selected type "message")) "メッセージ")))
                                         ))
                               (div (@ (class "column is-one-third"))
                                    ,(form-field "ラベル"
