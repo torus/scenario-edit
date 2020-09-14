@@ -1,8 +1,9 @@
 (use gauche.threads)
 (use gauche.collection)
+
+(use file.util)
 (use rfc.http)
 (use rfc.json)
-
 (use sxml.tools)
 
 (add-load-path "./gauche-rheingau/lib/")
@@ -193,7 +194,7 @@
                  content)))))))
 
 (define (json-file-path data-id)
-  #"data/~|data-id|.json")
+  #"json/~|data-id|.json")
 
 (define (read-and-render-scenario-file/edit id label-to-edit)
   (let ((filename (json-file-path id)))
@@ -247,9 +248,52 @@
        ))
     ))
 
-(define (update-with-json data-id json)
-  (let ((form-data (parse-json-string json)))
-    (write #?=form-data)))
+(define (update-with-json await data-id json)
+  (define form-data (parse-json-string json))
+  (define (get name)
+    (let ((val (assoc name form-data)))
+      (if val
+          (cdr val)
+          (error #"paramter not specified: ~|name|"))))
+
+  (let ((type (get "type"))
+        (orig-label (get "original-label"))
+        (label (get "label"))
+        (section (get "section"))
+        (lines (get "lines")))
+    (let* ((filename (json-file-path data-id))
+           (modified (await
+                      (^[]
+                        (with-input-from-file filename
+                          (^()
+                            (let ((content (parse-json)))
+                              (reverse
+                               (fold (^[conv rest]
+                                       (cons
+                                        (if (string=? orig-label (cdr (assoc "label" conv)))
+                                            `((label . ,label)
+                                              (section . ,section)
+                                              (type . ,type)
+                                              (lines . ,lines))
+                                            conv)
+                                        rest))
+                                     ()
+                                     content)))))))))
+      (await (^[]
+               (let ((new-json (list->vector modified)))
+                 (call-with-temporary-file
+                  (^[port tmpfile]
+                    #?=tmpfile
+                    #?=filename
+                    (with-output-to-port port
+                      (^[] (construct-json new-json)))
+                    (sys-chmod tmpfile #8r666)
+                    (move-file #?=tmpfile #?=filename :if-exists :supersede))
+                  :directory "json")
+                 'done
+                 )))
+      )
+    ))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/submit/
   (with-post-parameters
@@ -258,7 +302,7 @@
       (^[await]
         (let-params req ([id "p:1"]
                          [json "q"])
-                    (let ((result (await (^[] (update-with-json id json)))))
+                    (let ((result #?=(update-with-json await id json)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define-http-handler "/login"
