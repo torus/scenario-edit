@@ -65,6 +65,9 @@
                                    (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
                                 (span (@ (class "icon"))
                                       (i (@ (Class "fas fa-edit")) ""))))
+                        (div (@ (class "column is-2"))
+                             (span (@ (class "tag is-info"))
+                                   ,(get "type")))
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
@@ -117,9 +120,14 @@
 (define (render-conversation-form conv data-id)
   (define (get name)
     (cdr (assoc name conv)))
+  (define (value-and-selected type selected)
+    (if (string=? type selected)
+        (list '(value type) '(selected "selected"))
+        (list '(value type))))
 
   (let ((label (get "label"))
-        (lines (get "lines")))
+        (lines (get "lines"))
+        (type (get "type")))
     `(section (@ (class "section")
                  (id "form"))
               (div (@ (class "container"))
@@ -130,9 +138,17 @@
                                    (type "hidden")
                                    (value ,label)))
                          (div (@ (class "columns"))
+                              (div (@ (class "column is-2"))
+                                   ,(form-field "タイプ" #f
+                                                `(div (@ (class "select")
+                                                        (id "type-input"))
+                                                      (select
+                                                       (option (@ ,@(value-and-selected type "conversation")) "会話")
+                                                       (option (@ ,@(value-and-selected type "message")) "メッセージ")))
+                                        ))
                               (div (@ (class "column is-one-third"))
-                                   ,(form-field "会話 ID"
-                                                "他の会話と ID が重複しないようにしてください。"
+                                   ,(form-field "ラベル"
+                                                "他の会話とラベルが重複しないようにしてください。"
                                                 `(input (@ (class "input")
                                                            (id "label-input")
                                                            (type "text")

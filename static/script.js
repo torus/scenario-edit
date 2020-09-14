@@ -7,13 +7,14 @@ function submit(arg) {
     const lines = line_divs.map(el => {
         let charinput = el.querySelector('input.character-input')
         let lineinput = el.querySelector('input.line-input')
-        return {char: charinput.value, text: lineinput.value}
+        return {character: charinput.value, text: lineinput.value}
     })
 
     const data = {
         "original-label": document.querySelector('#original-label-input').value,
+        type:  document.querySelector('#type-input').value,
         label: document.querySelector('#label-input').value,
-        location: document.querySelector('#location-input').value,
+        section: document.querySelector('#location-input').value,
         lines
     }
 
