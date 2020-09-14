@@ -4,6 +4,7 @@ services:
     build: .
     volumes:
       - .:/code
+      - ../NekoGameDemo/Dev/Dialogues/json:/code/json
     ports:
       - "2222:2222"
     expose:
