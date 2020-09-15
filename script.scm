@@ -118,26 +118,26 @@
              (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
                        (value ,text))))))
 
-(define (render-conversation-form conv data-id)
-  (define (get name)
-    (cdr (assoc name conv)))
+(define (render-conversation-form conv data-id hidden-inputs)
+  (define (get name default)
+    (if conv
+        (cdr (assoc name conv))
+        default))
   (define (value-and-selected selected type)
     (if (string=? type selected)
         `((value ,type) (selected "selected"))
         `((value ,type))))
 
-  (let ((label (get "label"))
-        (lines (get "lines"))
-        (type (get "type")))
+  (let ((label (get "label" ""))
+        (lines (get "lines" #()))
+        (type (get "type" "conversation")))
     `(section (@ (class "section")
                  (id "form"))
               (div (@ (class "container"))
                    (form (@ (id "edit-form")
                             (action ,#"/scenarios/~|data-id|/submit")
                             (method "post"))
-                         (input (@ (id "original-label-input")
-                                   (type "hidden")
-                                   (value ,label)))
+                         ,hidden-inputs
                          (div (@ (class "columns"))
                               (div (@ (class "column is-2"))
                                    ,(form-field "タイプ" #f
@@ -159,7 +159,7 @@
                                                 `(input (@ (class "input") (type "text")
                                                            (id "location-input")
                                                            (placeholder "場所")
-                                                           (value ,(get "section")))))))
+                                                           (value ,(get "section" "")))))))
                          ,(reverse
                            (fold (^[line rest]
                                    (let ((char (cdr (assoc "character" line)))
@@ -174,27 +174,51 @@
                                        (href ,#"/scenarios/~data-id"))
                                     "キャンセル"))))))))
 
-(define (add-conversation-button)
+(define (add-conversation-button data-id prev-label)
   `(div (@ (class "columns"))
         (div (@ (class "column has-text-centered"))
-             (button (@ (class "button"))
-                     (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
+             (a (@ (class "button")
+                   (href ,#"/scenarios/~|data-id|/insert/~|prev-label|"))
+                (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
                      ))))
 
 (define (read-and-render-scenario-file id)
   (let ((filename (json-file-path id)))
     (with-input-from-file filename
       (^()
-        (let ((content (parse-json)))
-          (reverse
-           (fold (^[conv rest]
-                   (cons (add-conversation-button)
-                         (cons (render-conversation/edit-button conv id) rest)))
-                 (list (add-conversation-button))
-                 content)))))))
+        (let ((content (parse-json))
+              (prev-label ""))
+          (append (reverse
+                   (fold (^[conv rest]
+                           (let ((elem
+                                  (cons (render-conversation/edit-button conv id)
+                                        (cons (add-conversation-button id prev-label) rest))))
+                             (set! prev-label (cdr (assoc "label" conv)))
+                             elem))
+                         ()
+                         content))
+                  (list (add-conversation-button id prev-label))))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
+
+(define (read-and-render-scenario-file/insert id prev-label)
+  (let ((filename (json-file-path id)))
+    (with-input-from-file filename
+      (^()
+        (let ((content (parse-json)))
+          (reverse
+           (fold (^[conv rest]
+                   (let ((label (cdr (assoc "label" conv))))
+                     (if (string=? label prev-label)
+                         (cons (render-conversation-form #f id
+                                                         `(input (@ (id "prev-label-input")
+                                                                    (type "hidden")
+                                                                    (value ,label))))
+                               (cons (render-conversation conv id) rest))
+                         (cons (render-conversation conv id) rest))))
+                 ()
+                 content)))))))
 
 (define (read-and-render-scenario-file/edit id label-to-edit)
   (let ((filename (json-file-path id)))
@@ -205,7 +229,10 @@
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
                      (cons (if (string=? label label-to-edit)
-                               (render-conversation-form conv id)
+                               (render-conversation-form conv id
+                                                         `(input (@ (id "original-label-input")
+                                                                    (type "hidden")
+                                                                    (value ,label))))
                                (render-conversation conv id))
                            rest)))
                  ()
@@ -217,6 +244,26 @@
      (^[await]
        (let-params req ([id "p:1"])
                    (let ((rendered (read-and-render-scenario-file id)))
+                     (respond/ok req (cons "<!DOCTYPE html>"
+                                           (sxml:sxml->html
+                                            (create-page
+                                             rendered
+                                             )))))
+                   
+                   )
+
+
+       ))
+    ))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/insert\/(.*)/
+  (^[req app]
+    (violet-async
+     (^[await]
+       (let-params req ([id "p:1"]
+                        [label "p:2"])
+                   (let ((rendered (read-and-render-scenario-file/insert id label)))
+                     (write rendered)
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page

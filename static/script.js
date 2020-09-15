@@ -11,12 +11,19 @@ function submit(arg) {
     })
 
     const data = {
-        "original-label": document.querySelector('#original-label-input').value,
         type:  document.querySelector('#type-input').value,
         label: document.querySelector('#label-input').value,
         section: document.querySelector('#location-input').value,
         lines
     }
+
+    if (document.querySelector('#original-label-input')) {
+        data["original-label"] = document.querySelector('#original-label-input').value
+    }
+    if (document.querySelector('#prev-label-input')) {
+        data["previous-label"] = document.querySelector('#original-label-input').value
+    }
+
 
     console.log(data)
 
