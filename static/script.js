@@ -17,13 +17,13 @@ function submit(arg) {
         lines
     }
 
-    if (document.querySelector('#original-label-input')) {
-        data["original-label"] = document.querySelector('#original-label-input').value
+    var input_elem
+    if (input_elem = document.querySelector('#original-label-input')) {
+        data["original-label"] = input_elem.value
     }
-    if (document.querySelector('#prev-label-input')) {
-        data["previous-label"] = document.querySelector('#original-label-input').value
+    if (input_elem = document.querySelector('#prev-label-input')) {
+        data["previous-label"] = input_elem.value
     }
-
 
     console.log(data)
 

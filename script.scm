@@ -224,7 +224,13 @@
                                                                     (value ,label))))
                                (cons (render-conversation conv id) rest))
                          (cons (render-conversation conv id) rest))))
-                 ()
+                 (if (string=? prev-label "")
+                     (list
+                      (render-conversation-form #f id
+                                                `(input (@ (id "prev-label-input")
+                                                           (type "hidden")
+                                                           (value "")))))
+                     ())
                  content)))))))
 
 (define (read-and-render-scenario-file/edit id label-to-edit)
@@ -270,7 +276,6 @@
        (let-params req ([id "p:1"]
                         [label "p:2"])
                    (let ((rendered (read-and-render-scenario-file/insert id label)))
-                     (write rendered)
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
@@ -302,8 +307,7 @@
        ))
     ))
 
-(define (update-with-json await data-id json)
-  (define form-data (parse-json-string json))
+(define (update-existing-conversation await data-id form-data)
   (define (get name)
     (let ((val (assoc name form-data)))
       (if val
@@ -337,17 +341,66 @@
                (let ((new-json (list->vector modified)))
                  (call-with-temporary-file
                   (^[port tmpfile]
-                    #?=tmpfile
-                    #?=filename
                     (with-output-to-port port
                       (^[] (construct-json new-json)))
                     (sys-chmod tmpfile #8r666)
                     (move-file #?=tmpfile #?=filename :if-exists :supersede))
                   :directory "json")
                  'done
-                 )))
-      )
-    ))
+                 ))))))
+
+(define (insert-conversation await data-id form-data)
+  (define (get name)
+    (let ((val (assoc name form-data)))
+      (if val
+          (cdr val)
+          (error #"paramter not specified: ~|name|"))))
+
+  (let ((type (get "type"))
+        (prev-label (get "previous-label"))
+        (label (get "label"))
+        (section (get "section"))
+        (lines (get "lines")))
+    (let* ((filename (json-file-path data-id))
+           (modified (await
+                      (^[]
+                        (with-input-from-file filename
+                          (^()
+                            (let ((content (parse-json)))
+                              (reverse
+                               (fold (^[conv rest]
+                                        (if (string=? prev-label (cdr (assoc "label" conv)))
+                                            (cons `((label . ,label)
+                                                    (section . ,section)
+                                                    (type . ,type)
+                                                    (lines . ,lines))
+                                                  (cons conv rest))
+                                            (cons conv rest)))
+                                     (if (string=? prev-label "")
+                                         `(((label . ,label)
+                                            (section . ,section)
+                                            (type . ,type)
+                                            (lines . ,lines)))
+                                         ())
+                                     content)))))))))
+      (await (^[]
+               (let ((new-json (list->vector modified)))
+                 (call-with-temporary-file
+                  (^[port tmpfile]
+                    (with-output-to-port port
+                      (^[] (construct-json new-json)))
+                    (sys-chmod tmpfile #8r666)
+                    (move-file #?=tmpfile #?=filename :if-exists :supersede))
+                  :directory "json")
+                 'done
+                 ))))))
+
+(define (update-with-json await data-id json)
+  (define form-data (parse-json-string json))
+  (cond ((assoc "original-label" form-data)
+         (update-existing-conversation await data-id form-data))
+        ((assoc "previous-label" form-data)
+         (insert-conversation await data-id form-data))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/submit/
   (with-post-parameters
@@ -356,7 +409,7 @@
       (^[await]
         (let-params req ([id "p:1"]
                          [json "q"])
-                    (let ((result #?=(update-with-json await id json)))
+                    (let ((result (update-with-json await id json)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define-http-handler "/login"
