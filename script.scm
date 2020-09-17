@@ -166,20 +166,28 @@
                           (method "post"))
                        ,hidden-inputs
                        ,(conv-form)
-                       ,(reverse
-                         (fold (^[line rest]
-                                 (let ((char (cdr (assoc "character" line)))
-                                       (text (cdr (assoc "text" line))))
-                                   (cons (render-line-form char text) rest)))
-                               () lines))
+                       (div (@ (id "line-fields"))
+                            ,(reverse
+                              (fold (^[line rest]
+                                      (let ((char (cdr (assoc "character" line)))
+                                            (text (cdr (assoc "text" line))))
+                                        (cons (render-line-form char text) rest)))
+                                    () lines)))
+                       (div (@ (class "field has-text-centered"))
+                            (a (@ (class "button")
+                                  (id "add-line-button"))
+                               (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
+                               ))
                        (div (@ (class "field is-grouped is-grouped-right"))
                             (p (@ (class "control"))
                                (button (@ (class "button is-primary")) "更新"))
                             (p (@ (class "control"))
                                (a (@ (class "button is-light")
                                      (href ,#"/scenarios/~data-id"))
-                                  "キャンセル"))))))
-)
+                                  "キャンセル")))))
+            (div (@ (style "display: none")
+                    (id "hidden-field"))
+                 ,(render-line-form "" ""))))
 
 (define (add-conversation-button data-id prev-label)
   `(div (@ (class "columns"))

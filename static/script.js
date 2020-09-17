@@ -40,3 +40,17 @@ function submit(arg) {
 const form = document.querySelector('#edit-form')
 if (form)
     form.onsubmit = submit
+
+function on_line_plus_button_clicked(ev) {
+    console.log("plus line")
+    const orig = document.querySelector("#hidden-field > div")
+    console.log(orig)
+    const newelem = orig.cloneNode(true)
+    const container = document.querySelector("#line-fields")
+    container.append(newelem)
+    return false
+}
+
+const plus_button = document.querySelector("#add-line-button")
+if (plus_button)
+    plus_button.addEventListener("click", on_line_plus_button_clicked)
