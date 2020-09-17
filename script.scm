@@ -62,6 +62,15 @@
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
                         (div (@ (class "column is-1"))
+                             (form (@ (method "post")
+                                      (action ,#"/scenarios/~|data-id|/delete"))
+                                   (input (@ (type "hidden")
+                                             (name "label")
+                                             (value ,label)))
+                                   (button (@ (class "button is-danger"))
+                                           (span (@ (class "icon"))
+                                                 (i (@ (Class "fas fa-trash-alt")) "")))))
+                        (div (@ (class "column is-1"))
                              (a (@ (class "button")
                                    (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
                                 (span (@ (class "icon"))
@@ -357,6 +366,32 @@
                  'done
                  ))))))
 
+(define (delete-conversation await data-id label)
+(let* ((filename (json-file-path data-id))
+           (modified (await
+                      (^[]
+                        (with-input-from-file filename
+                          (^()
+                            (let ((content (parse-json)))
+                              (reverse
+                               (fold (^[conv rest]
+                                        (if (string=? label (cdr (assoc "label" conv)))
+                                            rest
+                                            (cons conv rest)))
+                                     ()
+                                     content)))))))))
+  (await (^[]
+           (let ((new-json (list->vector modified)))
+             (call-with-temporary-file
+              (^[port tmpfile]
+                (with-output-to-port port
+                  (^[] (construct-json new-json)))
+                (sys-chmod tmpfile #8r666)
+                (move-file #?=tmpfile #?=filename :if-exists :supersede))
+              :directory "json")
+             'done
+             )))))
+
 (define (insert-conversation await data-id form-data)
   (define (get name)
     (let ((val (assoc name form-data)))
@@ -418,6 +453,16 @@
         (let-params req ([id "p:1"]
                          [json "q"])
                     (let ((result (update-with-json await id json)))
+                      (respond/redirect req #"/scenarios/~|id|"))))))))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/delete/
+  (with-post-parameters
+   (^[req app]
+     (violet-async
+      (^[await]
+        (let-params req ([id "p:1"]
+                         [label "q"])
+                    (let ((result (delete-conversation await id label)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define-http-handler "/login"
