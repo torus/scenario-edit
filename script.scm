@@ -324,6 +324,20 @@
        ))
     ))
 
+(define (overwrite-json-file await json filename)
+  (await (^[]
+           (let ((new-json (list->vector json)))
+             (call-with-temporary-file
+              (^[port tmpfile]
+                (with-output-to-port port
+                  (^[]
+                    (construct-json new-json)
+                    (flush)))
+                (sys-system #"jq . < ~tmpfile > ~filename"))
+              :directory "json")
+             'done
+             ))))
+
 (define (update-existing-conversation await data-id form-data)
   (define (get name)
     (let ((val (assoc name form-data)))
@@ -354,19 +368,7 @@
                                         rest))
                                      ()
                                      content)))))))))
-      (await (^[]
-               (let ((new-json (list->vector modified)))
-                 (call-with-temporary-file
-                  (^[port tmpfile]
-                    (with-output-to-port port
-                      (^[]
-                        (construct-json new-json)
-                        (flush)))
-                    (sys-chmod tmpfile #8r666)
-                    (sys-system #"jq . < ~tmpfile > ~filename"))
-                  :directory "json")
-                 'done
-                 ))))))
+      (overwrite-json-file await modified filename))))
 
 (define (delete-conversation await data-id label)
 (let* ((filename (json-file-path data-id))
@@ -382,17 +384,7 @@
                                             (cons conv rest)))
                                      ()
                                      content)))))))))
-  (await (^[]
-           (let ((new-json (list->vector modified)))
-             (call-with-temporary-file
-              (^[port tmpfile]
-                (with-output-to-port port
-                  (^[] (construct-json new-json)))
-                (sys-chmod tmpfile #8r666)
-                (move-file #?=tmpfile #?=filename :if-exists :supersede))
-              :directory "json")
-             'done
-             )))))
+  (overwrite-json-file await modified filename)))
 
 (define (insert-conversation await data-id form-data)
   (define (get name)
@@ -428,17 +420,7 @@
                                             (lines . ,lines)))
                                          ())
                                      content)))))))))
-      (await (^[]
-               (let ((new-json (list->vector modified)))
-                 (call-with-temporary-file
-                  (^[port tmpfile]
-                    (with-output-to-port port
-                      (^[] (construct-json new-json)))
-                    (sys-chmod tmpfile #8r666)
-                    (move-file #?=tmpfile #?=filename :if-exists :supersede))
-                  :directory "json")
-                 'done
-                 ))))))
+      (overwrite-json-file await modified filename))))
 
 (define (update-with-json await data-id json)
   (define form-data (parse-json-string json))
