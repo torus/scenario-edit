@@ -7,7 +7,7 @@ function submit(arg) {
     const lines = line_divs.map(el => {
         let charinput = el.querySelector('input.character-input')
         let lineinput = el.querySelector('input.line-input')
-        if (charinput.value.length > 0 && lineinput.value.length > 0)
+        if (lineinput.value.length > 0)
             return {character: charinput.value, text: lineinput.value}
         else
             return null
