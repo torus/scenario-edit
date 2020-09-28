@@ -58,7 +58,7 @@
 
   (let ((label (get "label"))
         (lines (get "lines")))
-    `(section (@ (class "section"))
+    `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
                         (div (@ (class "column is-1"))
@@ -171,7 +171,7 @@
                (id "form"))
             (div (@ (class "container"))
                  (form (@ (id "edit-form")
-                          (action ,#"/scenarios/~|data-id|/submit")
+                          (action ,#"/scenarios/~|data-id|/submit/~label")
                           (method "post"))
                        ,hidden-inputs
                        ,(conv-form)
@@ -202,7 +202,7 @@
   `(div (@ (class "columns"))
         (div (@ (class "column has-text-centered"))
              (a (@ (class "button")
-                   (href ,#"/scenarios/~|data-id|/insert/~|prev-label|"))
+                   (href ,#"/scenarios/~|data-id|/insert/~|prev-label|#form"))
                 (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
                      ))))
 
@@ -445,15 +445,16 @@
         ((assoc "previous-label" form-data)
          (insert-conversation await data-id form-data))))
 
-(define-http-handler #/^\/scenarios\/(\d+)\/submit/
+(define-http-handler #/^\/scenarios\/(\d+)\/submit\/(.*)/
   (with-post-parameters
    (^[req app]
      (violet-async
       (^[await]
         (let-params req ([id "p:1"]
+                         [label "p:2"]
                          [json "q"])
                     (let ((result (update-with-json await id json)))
-                      (respond/redirect req #"/scenarios/~|id|"))))))))
+                      (respond/redirect req #"/scenarios/~|id|#label-~label"))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/delete/
   (with-post-parameters
