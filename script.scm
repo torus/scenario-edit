@@ -359,9 +359,11 @@
                  (call-with-temporary-file
                   (^[port tmpfile]
                     (with-output-to-port port
-                      (^[] (construct-json new-json)))
+                      (^[]
+                        (construct-json new-json)
+                        (flush)))
                     (sys-chmod tmpfile #8r666)
-                    (move-file #?=tmpfile #?=filename :if-exists :supersede))
+                    (sys-system #"jq . < ~tmpfile > ~filename"))
                   :directory "json")
                  'done
                  ))))))
