@@ -27,3 +27,8 @@ $(RHEINGAU):
 
 clean:
 	rm -rf *~ *.o $(TARGET) gosh-modules $(RHEINGAU) $(TARGET).dSYM
+
+.PHONY: check
+
+check:
+	gosh test/test-json-match.scm
