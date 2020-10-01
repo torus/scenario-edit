@@ -5,6 +5,7 @@
 (use rfc.http)
 (use rfc.json)
 (use sxml.tools)
+(use text.csv)
 
 (add-load-path "./gauche-rheingau/lib/")
 (use rheingau)
@@ -12,6 +13,7 @@
 
 (add-load-path "./lib/")
 (use violet)
+(use json-match)
 
 ;;
 ;; Application
@@ -428,6 +430,50 @@
          (update-existing-conversation await data-id form-data))
         ((assoc "previous-label" form-data)
          (insert-conversation await data-id form-data))))
+
+(define (convert-json-to-csv await data-id)
+  (let ((json-file (json-file-path data-id))
+        (dialog-writer (make-csv-writer ","))
+        (meta-writer (make-csv-writer ",")))
+    (call-with-output-file "Dialog_meta.csv"
+      (^[meta-port]
+        (call-with-output-file "Dialog.csv"
+          (^[dialog-port]
+            (dialog-writer dialog-port '("" "character" "text"))
+            (meta-writer meta-port '("" "type" "location" "count"))
+            (json-match
+             (await (^[] (with-input-from-file json-file parse-json)))
+             (^[% @]
+               (@ (^d
+                   (let ((label #f) (section #f) (type #f) (linecount 0))
+                     ((% "label" (cut set! label <>)) d)
+                     ((% "section" (cut set! section <>)) d)
+                     ((% "type" (cut set! type <>)) d)
+                     ((% "lines"
+                         (^d
+                          (set! linecount (vector-length d))
+                          (let ((char #f) (text #f) (num 0))
+                            ((@ (^j
+                                 ((% "character" (cut set! char <>)) j)
+                                 ((% "text" (cut set! text <>)) j)
+                                 (dialog-writer dialog-port
+                                                `(,#"~|label|_~num" ,char ,text))
+                                 (inc! num)
+                                 j))
+                             d))))
+                      d)
+                     (meta-writer meta-port
+                                  `(,label ,type ,section
+                                           ,(x->string linecount))))))))))))))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
+  (^[req app]
+    (violet-async
+     (^[await]
+       (let-params req ([data-id "p:1"])
+                   (convert-json-to-csv await data-id)
+                   (respond/ok req "ok")
+                   )))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/submit\/(.*)/
   (with-post-parameters
