@@ -54,6 +54,15 @@
         (div (@ (class "column"))
              ,text)))
 
+(define (render-lines lines)
+  (reverse
+   (fold (^[line rest]
+           (let ((char (cdr (assoc "character" line)))
+                 (text (cdr (assoc "text" line))))
+             (cons (render-line char text) rest)))
+         () lines)))
+
+
 (define (render-conversation/edit-button conv data-id)
   (define (get name)
     (cdr (assoc name conv)))
@@ -84,12 +93,7 @@
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
                              (p ,(get "section"))))
-                   ,(reverse
-                     (fold (^[line rest]
-                             (let ((char (cdr (assoc "character" line)))
-                                   (text (cdr (assoc "text" line))))
-                               (cons (render-line char text) rest)))
-                           () lines))))))
+                   ,@(render-lines lines)))))
 
 (define (render-conversation conv data-id)
   (define (get name)
@@ -104,12 +108,7 @@
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
                              (p ,(get "section"))))
-                   ,(reverse
-                     (fold (^[line rest]
-                             (let ((char (cdr (assoc "character" line)))
-                                   (text (cdr (assoc "text" line))))
-                               (cons (render-line char text) rest)))
-                           () lines))))))
+				   ,@(render-lines lines)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
 
