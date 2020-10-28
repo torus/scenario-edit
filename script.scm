@@ -47,19 +47,27 @@
                                  ))))
        ))))
 
-(define (render-line char text)
+(define (render-line char text options)
   `(div (@ (class "columns"))
         (div (@ (class "column is-one-fifth has-text-right"))
              ,char)
         (div (@ (class "column"))
-             ,text)))
+             ,text
+			 ,(if (null? options)
+				  ()
+				  `(ul
+					,@(map (^o `(li (span (@ (class "icon"))
+										  (i (@ (class "fas fa-angle-right")) ""))
+									,o)) options))))))
 
 (define (render-lines lines)
   (reverse
    (fold (^[line rest]
            (let ((char (cdr (assoc "character" line)))
-                 (text (cdr (assoc "text" line))))
-             (cons (render-line char text) rest)))
+                 (text (cdr (assoc "text" line)))
+				 (options (let ((opt (assoc "options" line)))
+							(if opt (cdr opt) ()))))
+             (cons (render-line char text options) rest)))
          () lines)))
 
 
@@ -118,17 +126,44 @@
         (div (@ (class "control")) ,input)
         ,(if (not-empty? help) `(p (@ (class "help")) ,help) ())))
 
+(define (render-option-form option)
+  `(div (@ (class "columns is-vcentered"))
+		(div (@ (class "column is-one-fifth has-text-right"))
+			 (span (@ (class "icon"))
+				   (i (@ (class "fas fa-angle-right")) "")))
+		(div (@ (class "column"))
+			 (input (@ (class "input option-input") (type "text")
+					   (placeholder "選択肢")
+					   (value ,option))))))
 
-(define (render-line-form char text)
-  `(div (@ (class "columns line-form"))
-        (div (@ (class "column is-one-fifth has-text-right"))
-             (input (@ (class "input character-input")
-                       (type "text")
-                       (placeholder "キャラクター")
-                       (value ,char))))
-        (div (@ (class "column"))
-             (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
-                       (value ,text))))))
+(define (render-line-form char text options)
+  `((div (@ (class "line-form"))
+		 (div (@ (class "columns"))
+			  (div (@ (class "column is-one-fifth"))
+				   (input (@ (class "input character-input")
+							 (type "text")
+							 (placeholder "キャラクター")
+							 (value ,char))))
+			  (div (@ (class "column"))
+				   (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
+							 (value ,text)))))
+
+		 (div (@ (class "option-fields"))
+			  ""
+			  ,@(reverse
+				 (fold (^[option rest]
+						 (cons
+						  (render-option-form option)
+						  rest))
+					   () options)))
+
+		 (div (@ (class "columns"))
+			  (div (@ (class "column"))
+				   (div (@ (class "field has-text-centered"))
+						(a (@ (class "button add-option-button"))
+						   (span (@ (class "icon"))
+								 (i (@ (Class "fas fa-angle-right")) ""))
+						   (span (@ (style "margin-left: 0.5ex"))"選択肢を追加"))))))))
 
 (define (render-conversation-form conv data-id hidden-inputs)
   (define (get name default)
@@ -168,6 +203,17 @@
                                        (placeholder "場所")
                                        (value ,(get "section" ""))))))))
 
+  (define (line-fields lines)
+	(reverse
+     (fold (^[line rest]
+             (let ((char (cdr (assoc "character" line)))
+                   (text (cdr (assoc "text" line)))
+				   (options (let ((opt (assoc "options" line)))
+							  (if opt (cdr opt) ()))))
+               (append (render-line-form char text options) rest)))
+           () lines)))
+
+
   `(section (@ (class "section")
                (id "form"))
             (div (@ (class "container"))
@@ -177,35 +223,40 @@
                        ,hidden-inputs
                        ,(conv-form)
                        (div (@ (id "line-fields"))
-                            ,(reverse
-                              (fold (^[line rest]
-                                      (let ((char (cdr (assoc "character" line)))
-                                            (text (cdr (assoc "text" line))))
-                                        (cons (render-line-form char text) rest)))
-                                    () lines)))
-                       (div (@ (class "field has-text-centered"))
-                            (a (@ (class "button")
-                                  (id "add-line-button"))
-                               (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
-                               ))
-                       (div (@ (class "field is-grouped is-grouped-right"))
-                            (p (@ (class "control"))
-                               (button (@ (class "button is-primary")) "更新"))
-                            (p (@ (class "control"))
-                               (a (@ (class "button is-light")
-                                     (href ,#"/scenarios/~data-id"))
-                                  "キャンセル")))))
+                            ,@(line-fields lines))
+
+                       (div (@ (class "columns"))
+							(div (@ (class "column"))
+								 (div (@ (class "field has-text-centered"))
+									  (a (@ (class "button")
+											(id "add-line-button"))
+										 (span (@ (class "icon"))
+											   (i (@ (Class "fas fa-comment")) ""))
+										 (span (@ (style "margin-left: 0.5ex"))"セリフを追加")))))
+
+                       (div (@ (class "columns"))
+							(div (@ (class "column"))
+								 (div (@ (class "field is-grouped is-grouped-right"))
+									  (p (@ (class "control"))
+										 (button (@ (class "button is-primary")) "更新"))
+									  (p (@ (class "control"))
+										 (a (@ (class "button is-light")
+											   (href ,#"/scenarios/~data-id"))
+											"キャンセル")))))))
             (div (@ (style "display: none")
                     (id "hidden-field"))
-                 ,(render-line-form "" ""))))
+                 ,@(render-line-form "" "" ()))
+			(div (@ (style "display: none")
+                    (id "hidden-option-field"))
+                 ,@(render-option-form ""))))
 
 (define (add-conversation-button data-id prev-label)
   `(div (@ (class "columns"))
         (div (@ (class "column has-text-centered"))
              (a (@ (class "button")
                    (href ,#"/scenarios/~|data-id|/insert/~|prev-label|#form"))
-                (span (@ (class "icon")) (i (@ (Class "fas fa-plus")) ""))
-                     ))))
+                (span (@ (class "icon")) (i (@ (Class "fas fa-comments")) ""))
+				(span (@ (style "margin-left: 0.5ex"))"会話を追加")))))
 
 (define (read-and-render-scenario-file id)
   (let ((filename (json-file-path id)))
@@ -405,22 +456,24 @@
                         (with-input-from-file filename
                           (^()
                             (let ((content (parse-json)))
-                              (reverse
-                               (fold (^[conv rest]
-                                        (if (string=? prev-label (cdr (assoc "label" conv)))
-                                            (cons `((label . ,label)
-                                                    (section . ,section)
-                                                    (type . ,type)
-                                                    (lines . ,lines))
-                                                  (cons conv rest))
-                                            (cons conv rest)))
-                                     (if (string=? prev-label "")
-                                         `(((label . ,label)
-                                            (section . ,section)
-                                            (type . ,type)
-                                            (lines . ,lines)))
-                                         ())
-                                     content)))))))))
+							  (if (string=? prev-label "")
+                                  (cons
+								   `((label . ,label)
+                                      (section . ,section)
+                                      (type . ,type)
+                                      (lines . ,lines))
+								   (vector->list content))
+								  (reverse
+								   (fold (^[conv rest]
+                                           (if (string=? prev-label (cdr (assoc "label" conv)))
+                                               (cons `((label . ,label)
+                                                       (section . ,section)
+                                                       (type . ,type)
+                                                       (lines . ,lines))
+													 (cons conv rest))
+                                               (cons conv rest)))
+										 ()
+										 content))))))))))
       (overwrite-json-file await modified filename))))
 
 (define (update-with-json await data-id json)

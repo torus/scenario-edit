@@ -7,8 +7,13 @@ function submit(arg) {
     const lines = line_divs.map(el => {
         let charinput = el.querySelector('input.character-input')
         let lineinput = el.querySelector('input.line-input')
+		const option_elems = el.querySelectorAll('.option-input')
+		const options = Array.from(option_elems).map(el => {
+			return el.value
+		}).filter(val => val)
+
         if (lineinput.value.length > 0)
-            return {character: charinput.value, text: lineinput.value}
+            return {character: charinput.value, text: lineinput.value, options}
         else
             return null
     }).filter(elem => elem)
@@ -49,6 +54,7 @@ function on_line_plus_button_clicked(ev) {
     const orig = document.querySelector("#hidden-field > div")
     console.log(orig)
     const newelem = orig.cloneNode(true)
+	setup_line_form(newelem)
     const container = document.querySelector("#line-fields")
     container.append(newelem)
     return false
@@ -57,3 +63,19 @@ function on_line_plus_button_clicked(ev) {
 const plus_button = document.querySelector("#add-line-button")
 if (plus_button)
     plus_button.addEventListener("click", on_line_plus_button_clicked)
+
+function on_add_option_button_clicked(ev) {
+	console.log(ev)
+}
+
+function setup_line_form(elem) {
+	const btn = elem.querySelector(".add-option-button")
+	btn.addEventListener("click", ev => {
+		const container = elem.querySelector(".option-fields")
+		const new_elem = document.querySelector("#hidden-option-field > div").cloneNode(true)
+		container.append(new_elem)
+	})
+}
+
+const line_forms = document.querySelectorAll(".line-form")
+line_forms.forEach(setup_line_form)
