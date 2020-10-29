@@ -486,37 +486,56 @@
 (define (convert-json-to-csv await data-id)
   (let ((json-file (json-file-path data-id))
         (dialog-writer (make-csv-writer ","))
+        (option-writer (make-csv-writer ","))
         (meta-writer (make-csv-writer ",")))
-    (call-with-output-file "Dialog_meta.csv"
+    (call-with-output-file "csv/Dialog_meta.csv"
       (^[meta-port]
-        (call-with-output-file "Dialog.csv"
+        (call-with-output-file "csv/Dialog.csv"
           (^[dialog-port]
-            (dialog-writer dialog-port '("" "character" "text"))
-            (meta-writer meta-port '("" "type" "location" "count"))
-            (json-match
-             (await (^[] (with-input-from-file json-file parse-json)))
-             (^[% @]
-               (@ (^d
-                   (let ((label #f) (section #f) (type #f) (linecount 0))
-                     ((% "label" (cut set! label <>)) d)
-                     ((% "section" (cut set! section <>)) d)
-                     ((% "type" (cut set! type <>)) d)
-                     ((% "lines"
-                         (^d
-                          (set! linecount (vector-length d))
-                          (let ((char #f) (text #f) (num 0))
-                            ((@ (^j
-                                 ((% "character" (cut set! char <>)) j)
-                                 ((% "text" (cut set! text <>)) j)
-                                 (dialog-writer dialog-port
-                                                `(,#"~|label|_~num" ,char ,text))
-                                 (inc! num)
-                                 j))
-                             d))))
-                      d)
-                     (meta-writer meta-port
-                                  `(,label ,type ,section
-                                           ,(x->string linecount))))))))))))))
+			(call-with-output-file "csv/Dialog_options.csv"
+			  (^[option-port]
+				(dialog-writer dialog-port '("" "character" "text" "options"))
+				(option-writer option-port '("" "option"))
+				(meta-writer meta-port '("" "type" "location" "count"))
+				(json-match
+				 (await (^[] (with-input-from-file json-file parse-json)))
+				 (^[% @]
+				   (@ (^d
+					   (let ((label #f) (section #f) (type #f) (linecount 0))
+						 ((% "label" (cut set! label <>)) d)
+						 ((% "section" (cut set! section <>)) d)
+						 ((% "type" (cut set! type <>)) d)
+						 ((% "lines"
+							 (^d
+							  (set! linecount (vector-length d))
+							  (let ((char #f) (text #f) (num 0) (optcount 0))
+								((@ (^j
+									 ((% "character" (cut set! char <>)) j)
+									 ((% "text" (cut set! text <>)) j)
+									 (when (assoc "options" j)
+									   ((% "options"
+										   (^d
+											(set! optcount (vector-length d))
+											(let ((optnum 0))
+											  ((@
+												(^[option]
+												  (option-writer option-port
+																 `(,#"~|label|_~|num|_~|optnum|"
+																   ,option))
+												  (inc! optnum)
+												  ))
+											   d))))
+										j))
+									 (dialog-writer dialog-port
+													`(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
+									 (inc! num)
+									 #t
+									 j))
+								 d))))
+						  d)
+						 (meta-writer meta-port
+									  `(,label ,type ,section
+											   ,(x->string linecount))))))))))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
   (^[req app]
