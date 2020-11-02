@@ -223,6 +223,7 @@
                        ,hidden-inputs
                        ,(conv-form)
                        (div (@ (id "line-fields"))
+							""
                             ,@(line-fields lines))
 
                        (div (@ (class "columns"))
