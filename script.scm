@@ -7,11 +7,11 @@
 (use sxml.tools)
 (use text.csv)
 
-(add-load-path "./gauche-rheingau/lib/")
+(add-load-path "gauche-rheingau/lib" :relative)
 (use rheingau)
 (rheingau-use makiki)
 
-(add-load-path "./lib/")
+(add-load-path "lib" :relative)
 (use violet)
 (use json-match)
 
