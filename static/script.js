@@ -42,6 +42,14 @@ function submit(arg) {
     elem.value = JSON.stringify(data)
     form.append(elem)
 
+    const a = document.createElement('a')
+    a.href = form.action
+    const path = a.pathname.split('/')
+    if (!path[4]) {
+        path[4] = data.label
+        form.action = path.join('/')
+    }
+
     return form.submit()
 }
 
