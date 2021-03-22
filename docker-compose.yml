@@ -1,7 +1,7 @@
 version: '2'
 services:
   gosh:
-    build: .
+    image: torus/violet:latest
     volumes:
       - .:/code
       - ../NekoGameDemo/Dev/Dialogues/json:/code/json
@@ -10,3 +10,4 @@ services:
       - "2222:2222"
     expose:
       - "2222"
+    entrypoint: make run

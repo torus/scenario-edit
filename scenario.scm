@@ -7,12 +7,10 @@
 (use sxml.tools)
 (use text.csv)
 
-(add-load-path "gauche-rheingau/lib" :relative)
-(use rheingau)
-(rheingau-use makiki)
+(use violet)
+(use makiki)
 
 (add-load-path "lib" :relative)
-(use violet)
 (use json-match)
 
 ;;
@@ -567,20 +565,5 @@
                          [label "q"])
                     (let ((result (delete-conversation await id label)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
-
-(define-http-handler "/login"
-  (^[req app]
-	(respond/ok req (cons "<!DOCTYPE html>"
-                               (sxml:sxml->html
-                                (create-page
-                                 '(div (@ (class "fb-login-button")
-                                          (onlogin "onlogin")
-                                          (data-width "")
-                                          (data-size "large")
-                                          (data-button-type "continue_with")
-                                          (data-auto-logout-link "false")
-                                          (data-use-continue-as "false")))
-
-                                 ))))))
 
 (define-http-handler #/^\/static\// (file-handler))
