@@ -1,7 +1,7 @@
 version: '2'
 services:
   gosh:
-    image: torus/violet:latest
+    build: .
     volumes:
       - .:/code
       - ../NekoGameDemo/Dev/Dialogues/json:/code/json
