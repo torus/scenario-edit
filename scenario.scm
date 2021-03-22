@@ -98,7 +98,7 @@
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
-                             (p ,(get "section"))))
+                             (p ,(get "location"))))
                    ,@(render-lines lines)))))
 
 (define (render-conversation conv data-id)
@@ -113,7 +113,7 @@
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
-                             (p ,(get "section"))))
+                             (p ,(get "location"))))
 				   ,@(render-lines lines)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
@@ -199,7 +199,7 @@
                             `(input (@ (class "input") (type "text")
                                        (id "location-input")
                                        (placeholder "場所")
-                                       (value ,(get "section" ""))))))))
+                                       (value ,(get "location" ""))))))))
 
   (define (line-fields lines)
 	(reverse
@@ -399,7 +399,7 @@
   (let ((type (get "type"))
         (orig-label (get "original-label"))
         (label (get "label"))
-        (section (get "section"))
+        (location (get "location"))
         (lines (get "lines")))
     (let* ((filename (json-file-path data-id))
            (modified (await
@@ -412,7 +412,7 @@
                                        (cons
                                         (if (string=? orig-label (cdr (assoc "label" conv)))
                                             `((label . ,label)
-                                              (section . ,section)
+                                              (location . ,location)
                                               (type . ,type)
                                               (lines . ,lines))
                                             conv)
@@ -447,7 +447,7 @@
   (let ((type (get "type"))
         (prev-label (get "previous-label"))
         (label (get "label"))
-        (section (get "section"))
+        (location (get "location"))
         (lines (get "lines")))
     (let* ((filename (json-file-path data-id))
            (modified (await
@@ -458,7 +458,7 @@
 							  (if (string=? prev-label "")
                                   (cons
 								   `((label . ,label)
-                                      (section . ,section)
+                                      (location . ,location)
                                       (type . ,type)
                                       (lines . ,lines))
 								   (vector->list content))
@@ -466,7 +466,7 @@
 								   (fold (^[conv rest]
                                            (if (string=? prev-label (cdr (assoc "label" conv)))
                                                (cons `((label . ,label)
-                                                       (section . ,section)
+                                                       (location . ,location)
                                                        (type . ,type)
                                                        (lines . ,lines))
 													 (cons conv rest))
@@ -500,9 +500,9 @@
 				 (await (^[] (with-input-from-file json-file parse-json)))
 				 (^[% @]
 				   (@ (^d
-					   (let ((label #f) (section #f) (type #f) (linecount 0))
+					   (let ((label #f) (location #f) (type #f) (linecount 0))
 						 ((% "label" (cut set! label <>)) d)
-						 ((% "section" (cut set! section <>)) d)
+						 ((% "location" (cut set! location <>)) d)
 						 ((% "type" (cut set! type <>)) d)
 						 ((% "lines"
 							 (^d
@@ -533,7 +533,7 @@
 								 d))))
 						  d)
 						 (meta-writer meta-port
-									  `(,label ,type ,section
+									  `(,label ,type ,location
 											   ,(x->string linecount))))))))))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/

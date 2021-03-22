@@ -21,7 +21,7 @@ function submit(arg) {
     const data = {
         type:  document.querySelector('#type-input').value,
         label: document.querySelector('#label-input').value,
-        section: document.querySelector('#location-input').value,
+        location: document.querySelector('#location-input').value,
         lines
     }
 
