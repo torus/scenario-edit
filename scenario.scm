@@ -566,4 +566,46 @@
                     (let ((result (delete-conversation await id label)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
+(define (render-location id loc)
+  (define (get name conv)
+    (cdr (assoc name conv)))
+  (let ((filename (json-file-path id)))
+    (with-input-from-file filename
+      (^()
+        (let ((content (parse-json)))
+		  `(div (@ (class "container"))
+				((p (a (@ (href ,#"/scenarios/~id"))
+					   (span (@ (class "icon"))
+                             (i (@ (class "fas fa-chevron-left")) ""))
+					   "戻る"))
+				 (div (@ (class "block"))
+					  (h2 (@ (class "title is-2")) ,loc)
+					  (table (@ (class "table"))
+							 ,(map
+							   (^[conv]
+								 (let ((label (get "label" conv)))
+								   `(tr
+									 (td (span (@ (class "tag is-info"))
+											   ,(get "type" conv)))
+									 (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
+											,label)))))
+							   (filter
+								(^[conv]
+								  (string=? loc (get "location" conv)))
+								content))))))
+		  )))))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/locations\/([^\/]+)\/?$/
+  (^[req app]
+     (violet-async
+      (^[await]
+        (let-params req ([id "p:1"] [loc "p:2"])
+					(let ((rendered (render-location id loc)))
+                      (respond/ok req (cons "<!DOCTYPE html>"
+											(sxml:sxml->html
+                                             (create-page
+                                              rendered
+                                              )))))))))
+)
+
 (define-http-handler #/^\/static\// (file-handler))
