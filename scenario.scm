@@ -254,21 +254,27 @@
       (^()
         (let ((content (parse-json))
               (prev-label ""))
-          (append (reverse
-                   (fold (^[conv rest]
-                           (let ((elem
-                                  (cons (render-conversation/edit-button conv id)
-                                        (cons (add-conversation-button id prev-label) rest))))
-                             (set! prev-label (cdr (assoc "label" conv)))
-                             elem))
-                         ()
-                         content))
-                  (list (add-conversation-button id prev-label))))))))
+          (append
+		   (reverse
+            (fold (^[conv rest]
+                    (let ((prev-label-bak prev-label))
+                      (set! prev-label (cdr (assoc "label" conv)))
+					  (cons (render-conversation/edit-button conv id)
+                            (cons (add-conversation-button id prev-label-bak)
+								  rest))))
+                  ()
+                  content))
+           (list (add-conversation-button id prev-label))))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
 
 (define (read-and-render-scenario-file/insert id prev-label)
+  (define (new-form label)
+	(render-conversation-form #f id
+                              `(input (@ (id "prev-label-input")
+                                         (type "hidden")
+                                         (value ,label)))))
   (let ((filename (json-file-path id)))
     (with-input-from-file filename
       (^()
@@ -277,22 +283,21 @@
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
                      (if (string=? label prev-label)
-                         (cons (render-conversation-form #f id
-                                                         `(input (@ (id "prev-label-input")
-                                                                    (type "hidden")
-                                                                    (value ,label))))
+                         (cons (new-form label)
                                (cons (render-conversation conv id) rest))
                          (cons (render-conversation conv id) rest))))
                  (if (string=? prev-label "")
-                     (list
-                      (render-conversation-form #f id
-                                                `(input (@ (id "prev-label-input")
-                                                           (type "hidden")
-                                                           (value "")))))
+                     (list (new-form ""))
                      ())
                  content)))))))
 
 (define (read-and-render-scenario-file/edit id label-to-edit)
+  (define (new-form conv label)
+	(render-conversation-form conv id
+                              `(input (@ (id "original-label-input")
+                                         (type "hidden")
+                                         (value ,label)))))
+
   (let ((filename (json-file-path id)))
     (with-input-from-file filename
       (^()
@@ -301,10 +306,7 @@
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
                      (cons (if (string=? label label-to-edit)
-                               (render-conversation-form conv id
-                                                         `(input (@ (id "original-label-input")
-                                                                    (type "hidden")
-                                                                    (value ,label))))
+                               (new-form conv label)
                                (render-conversation conv id))
                            rest)))
                  ()
