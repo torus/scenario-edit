@@ -68,7 +68,7 @@
              (cons (render-line char text options) rest)))
          () lines)))
 
-(define (edit-buttons data-id label lines)
+(define (edit-buttons data-id label)
   `((div (@ (class "column is-1"))
 		 (form (@ (method "post")
                   (action ,#"/scenarios/~|data-id|/delete"))
@@ -84,7 +84,7 @@
 			(span (@ (class "icon"))
                   (i (@ (Class "fas fa-edit")) ""))))))
 
-(define (render-conversation/edit-button conv data-id)
+(define (render-conversation conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
 
@@ -93,7 +93,7 @@
     `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
-						,(edit-buttons data-id label lines)
+						,@additioanl-elements
                         (div (@ (class "column is-2"))
                              (span (@ (class "tag is-info"))
                                    ,(get "type")))
@@ -103,20 +103,9 @@
                              (p ,(get "location"))))
                    ,@(render-lines lines)))))
 
-(define (render-conversation conv data-id)
-  (define (get name)
-    (cdr (assoc name conv)))
-
-  (let ((label (get "label"))
-        (lines (get "lines")))
-    `(section (@ (class "section"))
-              (div (@ (class "container"))
-                   (div (@ (class "columns is-vcentered"))
-                        (div (@ (class "column is-one-third"))
-                             (h4 (@ (class "title is-4")) ,label))
-                        (div (@ (class "column"))
-                             (p ,(get "location"))))
-				   ,@(render-lines lines)))))
+(define (render-conversation/edit-button conv data-id)
+  (render-conversation conv data-id
+					   (edit-buttons data-id (cdr (assoc "label" conv)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
 
