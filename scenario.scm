@@ -90,7 +90,8 @@
     (cdr (assoc name conv)))
 
   (let ((label (get "label"))
-        (lines (get "lines")))
+        (lines (get "lines"))
+		(loc (get "location")))
     `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
@@ -101,7 +102,8 @@
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
-                             (p ,(get "location"))))
+                             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+								   ,loc))))
                    ,@(render-lines lines)))))
 
 (define (render-conversation/edit-button conv data-id)
