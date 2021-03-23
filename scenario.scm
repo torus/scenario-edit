@@ -331,13 +331,7 @@
                                            (sxml:sxml->html
                                             (create-page
                                              rendered
-                                             )))))
-                   
-                   )
-
-
-       ))
-    ))
+                                             ))))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/insert\/(.*)/
   (^[req app]
@@ -350,13 +344,7 @@
                                            (sxml:sxml->html
                                             (create-page
                                              rendered
-                                             )))))
-                   
-                   )
-
-
-       ))
-    ))
+                                             ))))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/edit\/(.*)/
   (^[req app]
@@ -369,13 +357,7 @@
                                            (sxml:sxml->html
                                             (create-page
                                              rendered
-                                             )))))
-                   
-                   )
-
-
-       ))
-    ))
+                                             ))))))))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]
