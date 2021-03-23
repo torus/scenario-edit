@@ -1,10 +1,7 @@
 SCRIPT=scenario.scm
 
-build:
-	rh1 install
-
-BUILT: build
-	touch $@
+BUILT:
+	rh1 install | tee $@
 
 run: BUILT
 	nodemon -e scm --ignore gosh-modules/ --exec violet $(SCRIPT)
