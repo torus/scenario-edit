@@ -248,37 +248,34 @@
                 ,(fas-icon "comments")
 				(span (@ (style "margin-left: 0.5ex"))"会話を追加")))))
 
-(define (read-and-render-scenario-file id)
-  (let ((filename (json-file-path id)))
-    (with-input-from-file filename
-      (^()
-        (let ((content (parse-json))
-              (prev-label ""))
-          (append
-		   (reverse
-            (fold (^[conv rest]
-                    (let ((prev-label-bak prev-label))
-                      (set! prev-label (cdr (assoc "label" conv)))
-					  (cons (render-conversation/edit-button conv id)
-                            (cons (add-conversation-button id prev-label-bak)
-								  rest))))
-                  ()
-                  content))
-           (list (add-conversation-button id prev-label))))))))
+(define (read-scenario-file await id)
+  (await (^[] (with-input-from-file (json-file-path id) parse-json))))
+
+(define (read-and-render-scenario-file await id)
+  (let ((content (read-scenario-file await id))
+        (prev-label ""))
+    (append
+	 (reverse
+      (fold (^[conv rest]
+              (let ((prev-label-bak prev-label))
+                (set! prev-label (cdr (assoc "label" conv)))
+				(cons (render-conversation/edit-button conv id)
+                      (cons (add-conversation-button id prev-label-bak)
+							rest))))
+            ()
+            content))
+     (list (add-conversation-button id prev-label)))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
 
-(define (read-and-render-scenario-file/insert id prev-label)
+(define (read-and-render-scenario-file/insert await id prev-label)
   (define (new-form label)
 	(render-conversation-form #f id
                               `(input (@ (id "prev-label-input")
                                          (type "hidden")
                                          (value ,label)))))
-  (let ((filename (json-file-path id)))
-    (with-input-from-file filename
-      (^()
-        (let ((content (parse-json)))
+  (let ((content (read-scenario-file await id)))
           (reverse
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
@@ -289,19 +286,16 @@
                  (if (string=? prev-label "")
                      (list (new-form ""))
                      ())
-                 content)))))))
+                 content))))
 
-(define (read-and-render-scenario-file/edit id label-to-edit)
+(define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
 	(render-conversation-form conv id
                               `(input (@ (id "original-label-input")
                                          (type "hidden")
                                          (value ,label)))))
 
-  (let ((filename (json-file-path id)))
-    (with-input-from-file filename
-      (^()
-        (let ((content (parse-json)))
+  (let ((content (read-scenario-file await id)))
           (reverse
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
@@ -310,14 +304,14 @@
                                (render-conversation conv id))
                            rest)))
                  ()
-                 content)))))))
+                 content))))
 
 (define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
     (violet-async
      (^[await]
        (let-params req ([id "p:1"])
-                   (let ((rendered (read-and-render-scenario-file id)))
+                   (let ((rendered (read-and-render-scenario-file await id)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
@@ -330,7 +324,7 @@
      (^[await]
        (let-params req ([id "p:1"]
                         [label "p:2"])
-                   (let ((rendered (read-and-render-scenario-file/insert id label)))
+                   (let ((rendered (read-and-render-scenario-file/insert await id label)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
@@ -343,7 +337,7 @@
      (^[await]
        (let-params req ([id "p:1"]
                         [label "p:2"])
-                   (let ((rendered (read-and-render-scenario-file/edit id label)))
+                   (let ((rendered (read-and-render-scenario-file/edit await id label)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
@@ -376,40 +370,33 @@
         (label (get "label"))
         (location (get "location"))
         (lines (get "lines")))
-    (let* ((filename (json-file-path data-id))
-           (modified (await
-                      (^[]
-                        (with-input-from-file filename
-                          (^()
-                            (let ((content (parse-json)))
-                              (reverse
-                               (fold (^[conv rest]
-                                       (cons
-                                        (if (string=? orig-label (cdr (assoc "label" conv)))
-                                            `((label . ,label)
-                                              (location . ,location)
-                                              (type . ,type)
-                                              (lines . ,lines))
-                                            conv)
-                                        rest))
-                                     ()
-                                     content)))))))))
+    (let ((filename (json-file-path data-id))
+          (modified
+		   (let ((content (read-scenario-file await data-id)))
+             (reverse
+              (fold (^[conv rest]
+                      (cons
+                       (if (string=? orig-label (cdr (assoc "label" conv)))
+                           `((label . ,label)
+                             (location . ,location)
+                             (type . ,type)
+                             (lines . ,lines))
+                           conv)
+                       rest))
+                    ()
+                    content)))))
       (overwrite-json-file await modified filename))))
 
 (define (delete-conversation await data-id label)
 (let* ((filename (json-file-path data-id))
-           (modified (await
-                      (^[]
-                        (with-input-from-file filename
-                          (^()
-                            (let ((content (parse-json)))
+           (modified (let ((content (read-scenario-file await data-id)))
                               (reverse
                                (fold (^[conv rest]
                                         (if (string=? label (cdr (assoc "label" conv)))
                                             rest
                                             (cons conv rest)))
                                      ()
-                                     content)))))))))
+                                     content)))))
   (overwrite-json-file await modified filename)))
 
 (define (insert-conversation await data-id form-data)
@@ -425,29 +412,26 @@
         (location (get "location"))
         (lines (get "lines")))
     (let* ((filename (json-file-path data-id))
-           (modified (await
-                      (^[]
-                        (with-input-from-file filename
-                          (^()
-                            (let ((content (parse-json)))
-							  (if (string=? prev-label "")
-                                  (cons
-								   `((label . ,label)
-                                      (location . ,location)
-                                      (type . ,type)
-                                      (lines . ,lines))
-								   (vector->list content))
-								  (reverse
-								   (fold (^[conv rest]
-                                           (if (string=? prev-label (cdr (assoc "label" conv)))
-                                               (cons `((label . ,label)
-                                                       (location . ,location)
-                                                       (type . ,type)
-                                                       (lines . ,lines))
-													 (cons conv rest))
-                                               (cons conv rest)))
-										 ()
-										 content))))))))))
+           (modified
+			(let ((content (read-scenario-file await data-id)))
+			  (if (string=? prev-label "")
+                  (cons
+				   `((label . ,label)
+                     (location . ,location)
+                     (type . ,type)
+                     (lines . ,lines))
+				   (vector->list content))
+				  (reverse
+				   (fold (^[conv rest]
+                           (if (string=? prev-label (cdr (assoc "label" conv)))
+                               (cons `((label . ,label)
+                                       (location . ,location)
+                                       (type . ,type)
+                                       (lines . ,lines))
+									 (cons conv rest))
+                               (cons conv rest)))
+						 ()
+						 content))))))
       (overwrite-json-file await modified filename))))
 
 (define (update-with-json await data-id json)
@@ -458,8 +442,7 @@
          (insert-conversation await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((json-file (json-file-path data-id))
-        (dialog-writer (make-csv-writer ","))
+  (let ((dialog-writer (make-csv-writer ","))
         (option-writer (make-csv-writer ","))
         (meta-writer (make-csv-writer ",")))
     (call-with-output-file "csv/Dialog_meta.csv"
@@ -472,7 +455,7 @@
 				(option-writer option-port '("" "option"))
 				(meta-writer meta-port '("" "type" "location" "count"))
 				(json-match
-				 (await (^[] (with-input-from-file json-file parse-json)))
+				 (read-scenario-file await data-id)
 				 (^[% @]
 				   (@ (^d
 					   (let ((label #f) (location #f) (type #f) (linecount 0))
@@ -544,30 +527,27 @@
 (define (render-location id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
-  (let ((filename (json-file-path id)))
-    (with-input-from-file filename
-      (^()
-        (let ((content (parse-json)))
-		  `(div (@ (class "container"))
-				((p (a (@ (href ,#"/scenarios/~id"))
-					   ,(fas-icon "chevron-left")
-					   "戻る"))
-				 (div (@ (class "block"))
-					  (h2 (@ (class "title is-2")) ,loc)
-					  (table (@ (class "table"))
-							 ,(map
-							   (^[conv]
-								 (let ((label (get "label" conv)))
-								   `(tr
-									 (td (span (@ (class "tag is-info"))
-											   ,(get "type" conv)))
-									 (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
-											,label)))))
-							   (filter
-								(^[conv]
-								  (string=? loc (get "location" conv)))
-								content))))))
-		  )))))
+  (let ((content (read-scenario-file await data-id)))
+	`(div (@ (class "container"))
+		  ((p (a (@ (href ,#"/scenarios/~id"))
+				 ,(fas-icon "chevron-left")
+				 "戻る"))
+		   (div (@ (class "block"))
+				(h2 (@ (class "title is-2")) ,loc)
+				(table (@ (class "table"))
+					   ,(map
+						 (^[conv]
+						   (let ((label (get "label" conv)))
+							 `(tr
+							   (td (span (@ (class "tag is-info"))
+										 ,(get "type" conv)))
+							   (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
+									  ,label)))))
+						 (filter
+						  (^[conv]
+							(string=? loc (get "location" conv)))
+						  content))))))
+	))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/locations\/([^\/]+)\/?$/
   (^[req app]
