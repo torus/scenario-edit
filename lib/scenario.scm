@@ -11,6 +11,10 @@
   (use violet)
   (use makiki)
 
+  (use dbi)
+  (add-load-path "../gosh-modules/dbd-sqlite3" :relative)
+  (use dbd.sqlite3)
+
   (add-load-path "." :relative)
   (use json-match)
 
@@ -570,5 +574,66 @@
 
 (define-http-handler #/^\/static\// (file-handler))
 
-(define (scenario-start!)
+(define *sqlite-conn* #f)
+
+(define (execute-query str)
+  (dbi-execute (dbi-prepare *sqlite-conn* str)))
+
+(define (execute-query-tree tree)
+  (execute-query (tree->string tree)))
+
+(define-http-handler "/admin/setup"
+  (^[req app]
+    (violet-async
+     (^[await]
+       (await create-tables)
+       (respond/ok req (cons "<!DOCTYPE html>"
+                             (sxml:sxml->html
+                              (create-page
+                               "初期設定"
+                               '(p "done")
+                               ))))))))
+
+(define (create-tables)
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
+						"  scenario_id INTEGER PRIMARY KEY"
+                        ", title       TEXT NOT NULL"
+                        ", initial_location INTEGER"
+                        ")"))
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
+						"  dialog_id   INTEGER PRIMARY KEY"
+						", scenario_id INTEGER NOT NULL"
+						", order       INTEGER NOT NULL"
+                        ", label       TEXT NOT NULL"
+						", location    TEXT NOT NULL"
+						", type        TEXT NOT NULL"
+                        ")"))
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
+						"  line_id     INTEGER PRIMARY KEY"
+						", dialog_id   INTEGER NOT NULL"
+						", order       INTEGER NOT NULL"
+                        ", label       TEXT NOT NULL"
+						", location    TEXT NOT NULL"
+						", type        TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_required ("
+						"  dialog_id   INTEGER NOT NULL"
+						", flag        TEXT NOT NULL"
+                        ")"))
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_exclusive ("
+						"  dialog_id   INTEGER NOT NULL"
+						", flag        TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS options ("
+						"  line_id     INTEGER NOT NULL"
+						", text        TEXT NOT NULL"
+                        ")"))
   )
+
+(define (scenario-start!)
+  (let ((conn (dbi-connect "dbi:sqlite3:scenario-sqlite3.db")))
+    (set! *sqlite-conn* conn)
+    (print "Sqlite connected")
+	(flush)))
