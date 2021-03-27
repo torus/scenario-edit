@@ -1,4 +1,4 @@
-SCRIPT=scenario.scm
+SCRIPT=main.scm
 
 BUILT:
 	rh1 install | tee $@
@@ -13,3 +13,4 @@ clean:
 
 check:
 	gosh test/test-json-match.scm
+	gosh -I /usr/local/lib/violet test/test-scenario.scm

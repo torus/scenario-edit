@@ -1,17 +1,23 @@
-(use gauche.threads)
-(use gauche.collection)
+(define-module scenario
+  (use gauche.threads)
+  (use gauche.collection)
 
-(use file.util)
-(use rfc.http)
-(use rfc.json)
-(use sxml.tools)
-(use text.csv)
+  (use file.util)
+  (use rfc.http)
+  (use rfc.json)
+  (use sxml.tools)
+  (use text.csv)
 
-(use violet)
-(use makiki)
+  (use violet)
+  (use makiki)
 
-(add-load-path "lib" :relative)
-(use json-match)
+  (add-load-path "." :relative)
+  (use json-match)
+
+  (export scenario-start!
+   ))
+
+(select-module scenario)
 
 ;;
 ;; Application
@@ -524,10 +530,10 @@
                     (let ((result (delete-conversation await id label)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
-(define (render-location id loc)
+(define (render-location await id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
-  (let ((content (read-scenario-file await data-id)))
+  (let ((content (read-scenario-file await id)))
 	`(div (@ (class "container"))
 		  ((p (a (@ (href ,#"/scenarios/~id"))
 				 ,(fas-icon "chevron-left")
@@ -554,7 +560,7 @@
      (violet-async
       (^[await]
         (let-params req ([id "p:1"] [loc "p:2"])
-					(let ((rendered (render-location id loc)))
+					(let ((rendered (render-location await id loc)))
                       (respond/ok req (cons "<!DOCTYPE html>"
 											(sxml:sxml->html
                                              (create-page
@@ -563,3 +569,6 @@
 )
 
 (define-http-handler #/^\/static\// (file-handler))
+
+(define (scenario-start!)
+  )
