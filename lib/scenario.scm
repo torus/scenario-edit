@@ -7,6 +7,7 @@
   (use rfc.json)
   (use sxml.tools)
   (use text.csv)
+  (use text.tree)
 
   (use violet)
   (use makiki)
@@ -259,7 +260,54 @@
 				(span (@ (style "margin-left: 0.5ex"))"会話を追加")))))
 
 (define (read-scenario-file await id)
-  (await (^[] (with-input-from-file (json-file-path id) parse-json))))
+  #?=(with-query-result/tree
+   await
+   '("SELECT dialog_id, label, location, type"
+     " FROM dialogs"
+     " WHERE scenario_id = ?"
+     " ORDER BY ord")
+   `(,id)
+   (^[rset]
+     (map
+      (^[row]
+        (let ((dialog-id (vector-ref row 0))
+              (label (vector-ref row 1))
+              (loc (vector-ref row 2))
+              (typ (vector-ref row 3)))
+          `(("label" . ,label)
+            ("type" . ,typ)
+            ("location" . ,loc)
+            ("lines" .
+             ,(with-query-result/tree
+               await
+               '("SELECT line_id, character, text"
+                 " FROM lines"
+                 " WHERE dialog_id = ?"
+                 " ORDER by ord")
+               `(,dialog-id)
+               (^[rset]
+                 (map
+                  (^[row]
+                    (let ((line-id (vector-ref row 0))
+                          (char (vector-ref row 1))
+                          (text (vector-ref row 2)))
+                      `(("character" . ,char)
+                        ("text" . ,text)
+                        ("options" .
+                         ,(with-query-result/tree
+                           await
+                           '("SELECT text FROM options"
+                             " WHERE line_id = ? ORDER BY ord")
+                           `(,line-id)
+                           (^[rset]
+                             (map
+                              (^[row]
+                                (vector-ref row 0))
+                              rset)))))))
+                  rset)))))))
+      rset)))
+
+  #;(await (^[] (with-input-from-file (json-file-path id) parse-json))))
 
 (define (read-and-render-scenario-file await id)
   (let ((content (read-scenario-file await id))
@@ -576,11 +624,20 @@
 
 (define *sqlite-conn* #f)
 
-(define (execute-query str)
-  (dbi-execute (dbi-prepare *sqlite-conn* str)))
+(define (with-query-result await str args proc)
+  (let ((rset (await (^[] (apply dbi-do *sqlite-conn* str '() args)))))
+    (let ((result (proc rset)))
+      (dbi-close rset)
+      result)))
 
-(define (execute-query-tree tree)
-  (execute-query (tree->string tree)))
+(define (with-query-result/tree await tree args proc)
+  (with-query-result await (tree->string tree) args proc))
+
+(define (execute-query str args)
+  (apply dbi-do *sqlite-conn* str '() args))
+
+(define (execute-query-tree tree . args)
+  (execute-query (tree->string tree) args))
 
 (define-http-handler "/admin/setup"
   (^[req app]
@@ -590,9 +647,65 @@
        (respond/ok req (cons "<!DOCTYPE html>"
                              (sxml:sxml->html
                               (create-page
-                               "初期設定"
                                '(p "done")
+							   '(a (@ (href "/")) "Back Home")
                                ))))))))
+
+(define (convert-scenario-file-to-relations await id)
+  (let ((json (read-scenario-file await id))
+        (dialog-order 0))
+    (for-each
+     (^[dialog]
+       (let ((label (cdr (assoc "label" dialog)))
+             (location (cdr (assoc "location" dialog)))
+             (type (cdr (assoc "type" dialog)))
+             (lines (cdr (assoc "lines" dialog))))
+         (execute-query-tree '("INSERT INTO dialogs"
+                               " (scenario_id, ord, label, location, type)"
+                               " VALUES (?, ?, ?, ?, ?)")
+                             id dialog-order label location type)
+         (set! dialog-order (+ dialog-order 1024))
+         (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
+               (line-order 0))
+           (for-each
+            (^[line]
+              (let ((character (cdr (assoc "character" line)))
+                    (text (cdr (assoc "text" line)))
+                    (options (let1 opt (assoc "options" line)
+                               (if opt (cdr opt) ()))))
+                (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
+                                      " VALUES (?, ?, ?, ?)")
+                                    dialog-id line-order character text)
+                (let ((line-id (sqlite3-last-id *sqlite-conn*))
+                      (option-order 0))
+                  (for-each
+                   (^[option]
+                     (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
+                                           " VALUES (?, ?, ?)")
+                                         line-id option-order option)
+                     (set! option-order (+ option-order 1024)))
+                   options))
+                (set! line-order (+ line-order 1024))
+                ))
+            lines))
+         )
+       )
+     json)
+    "OK"
+    ))
+
+(define-http-handler #/^\/scenarios\/(\d+)\/convert$/
+  (^[req app]
+     (violet-async
+      (^[await]
+        (let-params req ([id "p:1"])
+					(let ((result #?=(convert-scenario-file-to-relations await id)))
+                      (respond/ok req (cons "<!DOCTYPE html>"
+											(sxml:sxml->html
+                                             (create-page
+                                              result " "
+											  '(a (@ (href "/")) "Back Home")
+                                              ))))))))))
 
 (define (create-tables)
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
@@ -603,7 +716,7 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
 						"  dialog_id   INTEGER PRIMARY KEY"
 						", scenario_id INTEGER NOT NULL"
-						", order       INTEGER NOT NULL"
+						", ord       INTEGER NOT NULL"
                         ", label       TEXT NOT NULL"
 						", location    TEXT NOT NULL"
 						", type        TEXT NOT NULL"
@@ -611,10 +724,9 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
 						"  line_id     INTEGER PRIMARY KEY"
 						", dialog_id   INTEGER NOT NULL"
-						", order       INTEGER NOT NULL"
-                        ", label       TEXT NOT NULL"
-						", location    TEXT NOT NULL"
-						", type        TEXT NOT NULL"
+						", ord       INTEGER NOT NULL"
+                        ", character   TEXT NOT NULL"
+						", text        TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_required ("
@@ -628,6 +740,7 @@
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS options ("
 						"  line_id     INTEGER NOT NULL"
+						", ord         INTEGER NOT NULL"
 						", text        TEXT NOT NULL"
                         ")"))
   )
