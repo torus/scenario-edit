@@ -103,7 +103,8 @@
 
   (let ((label (get "label"))
         (lines (get "lines"))
-		(loc (get "location")))
+		(loc (get "location"))
+        (ord (get "ord")))
     `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
@@ -115,7 +116,10 @@
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
                              (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-								   ,loc))))
+								   ,loc)))
+                        (div (@ (class "column"))
+                             (p (@ (class "has-text-grey"))
+                                ,(x->string ord))))
                    ,@(render-lines lines)))))
 
 (define (render-conversation/edit-button conv data-id)
@@ -319,19 +323,20 @@
       rset))))
 
 (define (read-and-render-scenario-file await id)
-  (let ((content (read-scenario-file await id))
-        (prev-label ""))
-    (append
-	 (reverse
-      (fold (^[conv rest]
-              (let ((prev-label-bak prev-label))
-                (set! prev-label (cdr (assoc "label" conv)))
-				(cons (render-conversation/edit-button conv id)
-                      (cons (add-conversation-button id prev-label-bak)
-							rest))))
-            ()
-            content))
-     (list (add-conversation-button id prev-label)))))
+  (define (elems content)
+    (fold2 (^[conv rest prev-label]
+             (let ((prev-label-bak prev-label))
+               (values (cons (render-conversation/edit-button conv id)
+                             (cons (add-conversation-button id prev-label)
+                                   rest))
+                       (cdr (assoc "label" conv)))))
+           () ""
+           content))
+  (let ((content (read-scenario-file await id)))
+    (let-values (((convs prev-label)
+                  (elems content)))
+      (append (reverse convs)
+              (list (add-conversation-button id prev-label))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
