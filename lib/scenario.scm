@@ -256,11 +256,11 @@
                     (id "hidden-option-field"))
                  ,@(render-option-form ""))))
 
-(define (add-conversation-button data-id prev-label)
+(define (add-conversation-button data-id prev-label ord)
   `(div (@ (class "columns"))
         (div (@ (class "column has-text-centered"))
              (a (@ (class "button")
-                   (href ,#"/scenarios/~|data-id|/insert/~|prev-label|#form"))
+                   (href ,#"/scenarios/~|data-id|/insert/~|ord|#form"))
                 ,(fas-icon "comments")
 				(span (@ (style "margin-left: 0.5ex"))"会話を追加")))))
 
@@ -323,42 +323,49 @@
       rset))))
 
 (define (read-and-render-scenario-file await id)
+  (define (label-of conv)
+    (cdr (assoc "label" conv)))
+  (define (ord-of conv)
+    (cdr (assoc "ord" conv)))
   (define (elems content)
-    (fold2 (^[conv rest prev-label]
-             (let ((prev-label-bak prev-label))
+    (fold2 (^[conv rest prev-conv]
+             (let ((prev-label (if prev-conv (label-of prev-conv) ""))
+                   (ord (if prev-conv
+                            (/ (+ (ord-of prev-conv) (ord-of conv)) 2)
+                            (- (ord-of conv) 1024))))
                (values (cons (render-conversation/edit-button conv id)
-                             (cons (add-conversation-button id prev-label)
+                             (cons (add-conversation-button id prev-label ord)
                                    rest))
-                       (cdr (assoc "label" conv)))))
-           () ""
+                       conv)))
+           () #f
            content))
   (let ((content (read-scenario-file await id)))
-    (let-values (((convs prev-label)
+    (let-values (((convs prev-conv)
                   (elems content)))
       (append (reverse convs)
-              (list (add-conversation-button id prev-label))))))
+              (list (add-conversation-button id (label-of prev-conv)
+                                             (ord-of prev-conv)))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
 
-(define (read-and-render-scenario-file/insert await id prev-label)
-  (define (new-form label)
+(define (read-and-render-scenario-file/insert await id ord)
+  (define (new-form ord)
 	(render-conversation-form #f id
-                              `(input (@ (id "prev-label-input")
+                              `(input (@ (id "ord-input")
                                          (type "hidden")
-                                         (value ,label)))))
+                                         (value ,ord)))))
   (let ((content (read-scenario-file await id)))
           (reverse
-           (fold (^[conv rest]
-                   (let ((label (cdr (assoc "label" conv))))
-                     (if (string=? label prev-label)
-                         (cons (new-form label)
-                               (cons (render-conversation conv id) rest))
-                         (cons (render-conversation conv id) rest))))
-                 (if (string=? prev-label "")
-                     (list (new-form ""))
-                     ())
-                 content))))
+           (fold2 (^[conv rest inserted?]
+                   (let ((next-ord (cdr (assoc "ord" conv))))
+                     (if (and (not inserted?) (< next-ord ord))
+                         (values (cons (new-form ord)
+                                       (cons (render-conversation conv id) rest))
+                                 #t)
+                         (values (cons (render-conversation conv id) rest) inserted?))))
+                  () #f
+                  content))))
 
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
@@ -395,8 +402,8 @@
     (violet-async
      (^[await]
        (let-params req ([id "p:1"]
-                        [label "p:2"])
-                   (let ((rendered (read-and-render-scenario-file/insert await id label)))
+                        [ord "p:2" :convert string->number])
+                   (let ((rendered (read-and-render-scenario-file/insert await id ord)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
