@@ -119,7 +119,7 @@
 								   ,loc)))
                         (div (@ (class "column"))
                              (p (@ (class "has-text-grey"))
-                                ,(x->string ord))))
+                                "0x" ,(number->string ord 16))))
                    ,@(render-lines lines)))))
 
 (define (render-conversation/edit-button conv data-id)
@@ -257,14 +257,18 @@
                  ,@(render-option-form ""))))
 
 (define (add-conversation-button data-id prev-label ord)
-  `(div (@ (class "columns"))
-        (div (@ (class "column has-text-centered"))
-             (a (@ (class "button")
-                   (href ,#"/scenarios/~|data-id|/insert/~|ord|#form"))
-                ,(fas-icon "comments")
-				(span (@ (style "margin-left: 0.5ex"))"会話を追加")))))
+  (let ((ord-hex (number->string ord 16)))
+    `(div (@ (class "columns"))
+          (div (@ (class "column has-text-centered"))
+               (a (@ (class "button")
+                     (href ,#"/scenarios/~|data-id|/insert/~|ord-hex|#form"))
+                  ,(fas-icon "comments")
+				  (span (@ (style "margin-left: 0.5ex"))"会話を追加"))))))
 
 (define (read-scenario-file await id)
+  (await (^[] (with-input-from-file (json-file-path id) parse-json))))
+
+(define (read-scenario-from-db await id)
   #?=(with-query-result/tree
    await
    '("SELECT dialog_id, label, location, type, ord"
@@ -339,12 +343,12 @@
                        conv)))
            () #f
            content))
-  (let ((content (read-scenario-file await id)))
+  (let ((content (read-scenario-from-db await id)))
     (let-values (((convs prev-conv)
                   (elems content)))
       (append (reverse convs)
               (list (add-conversation-button id (label-of prev-conv)
-                                             (ord-of prev-conv)))))))
+                                             (+ 1024 (ord-of prev-conv))))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
@@ -355,15 +359,16 @@
                               `(input (@ (id "ord-input")
                                          (type "hidden")
                                          (value ,ord)))))
-  (let ((content (read-scenario-file await id)))
+  (let ((content (read-scenario-from-db await id)))
           (reverse
            (fold2 (^[conv rest inserted?]
                    (let ((next-ord (cdr (assoc "ord" conv))))
-                     (if (and (not inserted?) (< next-ord ord))
-                         (values (cons (new-form ord)
-                                       (cons (render-conversation conv id) rest))
+                     (if (and (not inserted?) (> next-ord ord))
+                         (values (cons (render-conversation conv id)
+                                       (cons (new-form ord) rest))
                                  #t)
-                         (values (cons (render-conversation conv id) rest) inserted?))))
+                         (values (cons (render-conversation conv id) rest)
+                                 inserted?))))
                   () #f
                   content))))
 
@@ -374,7 +379,7 @@
                                          (type "hidden")
                                          (value ,label)))))
 
-  (let ((content (read-scenario-file await id)))
+  (let ((content (read-scenario-from-db await id)))
           (reverse
            (fold (^[conv rest]
                    (let ((label (cdr (assoc "label" conv))))
@@ -402,7 +407,7 @@
     (violet-async
      (^[await]
        (let-params req ([id "p:1"]
-                        [ord "p:2" :convert string->number])
+                        [ord "p:2" :convert (cut string->number <> 16)])
                    (let ((rendered (read-and-render-scenario-file/insert await id ord)))
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
@@ -451,7 +456,7 @@
         (lines (get "lines")))
     (let ((filename (json-file-path data-id))
           (modified
-		   (let ((content (read-scenario-file await data-id)))
+		   (let ((content (read-scenario-from-db await data-id)))
              (reverse
               (fold (^[conv rest]
                       (cons
@@ -468,7 +473,7 @@
 
 (define (delete-conversation await data-id label)
 (let* ((filename (json-file-path data-id))
-           (modified (let ((content (read-scenario-file await data-id)))
+           (modified (let ((content (read-scenario-from-db await data-id)))
                               (reverse
                                (fold (^[conv rest]
                                         (if (string=? label (cdr (assoc "label" conv)))
@@ -485,39 +490,16 @@
           (cdr val)
           (error #"paramter not specified: ~|name|"))))
 
-  (let ((type (get "type"))
-        (prev-label (get "previous-label"))
-        (label (get "label"))
-        (location (get "location"))
-        (lines (get "lines")))
-    (let* ((filename (json-file-path data-id))
-           (modified
-			(let ((content (read-scenario-file await data-id)))
-			  (if (string=? prev-label "")
-                  (cons
-				   `((label . ,label)
-                     (location . ,location)
-                     (type . ,type)
-                     (lines . ,lines))
-				   (vector->list content))
-				  (reverse
-				   (fold (^[conv rest]
-                           (if (string=? prev-label (cdr (assoc "label" conv)))
-                               (cons `((label . ,label)
-                                       (location . ,location)
-                                       (type . ,type)
-                                       (lines . ,lines))
-									 (cons conv rest))
-                               (cons conv rest)))
-						 ()
-						 content))))))
-      (overwrite-json-file await modified filename))))
+  (let ((ord (get "ord")))
+    (convert-dialog-to-relations await data-id form-data ord)))
 
 (define (update-with-json await data-id json)
   (define form-data (parse-json-string json))
-  (cond ((assoc "original-label" form-data)
+  (cond ((assoc "ord" form-data)
+         (insert-conversation await data-id form-data))
+        ((assoc "original-label" form-data)
          (update-existing-conversation await data-id form-data))
-        ((assoc "previous-label" form-data)
+        #;((assoc "previous-label" form-data)
          (insert-conversation await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
@@ -534,7 +516,7 @@
 				(option-writer option-port '("" "option"))
 				(meta-writer meta-port '("" "type" "location" "count"))
 				(json-match
-				 (read-scenario-file await data-id)
+				 (read-scenario-from-db await data-id)
 				 (^[% @]
 				   (@ (^d
 					   (let ((label #f) (location #f) (type #f) (linecount 0))
@@ -606,7 +588,7 @@
 (define (render-location await id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
-  (let ((content (read-scenario-file await id)))
+  (let ((content (read-scenario-from-db await id)))
 	`(div (@ (class "container"))
 		  ((p (a (@ (href ,#"/scenarios/~id"))
 				 ,(fas-icon "chevron-left")
@@ -672,45 +654,47 @@
 							   '(a (@ (href "/")) "Back Home")
                                ))))))))
 
+(define (convert-dialog-to-relations await id dialog dialog-order)
+  (let ((label (cdr (assoc "label" dialog)))
+        (location (cdr (assoc "location" dialog)))
+        (type (cdr (assoc "type" dialog)))
+        (lines (cdr (assoc "lines" dialog))))
+    (execute-query-tree '("INSERT INTO dialogs"
+                          " (scenario_id, ord, label, location, type)"
+                          " VALUES (?, ?, ?, ?, ?)")
+                        id dialog-order label location type)
+    (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
+          (line-order 0))
+      (for-each
+       (^[line]
+         (let ((character (cdr (assoc "character" line)))
+               (text (cdr (assoc "text" line)))
+               (options (let1 opt (assoc "options" line)
+                          (if opt (cdr opt) ()))))
+           (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
+                                 " VALUES (?, ?, ?, ?)")
+                               dialog-id line-order character text)
+           (let ((line-id (sqlite3-last-id *sqlite-conn*))
+                 (option-order 0))
+             (for-each
+              (^[option]
+                (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
+                                      " VALUES (?, ?, ?)")
+                                    line-id option-order option)
+                (set! option-order (+ option-order 1024)))
+              options))
+           (set! line-order (+ line-order 1024))
+           ))
+       lines))
+    ))
+
 (define (convert-scenario-file-to-relations await id)
   (let ((json (read-scenario-file await id))
         (dialog-order 0))
     (for-each
      (^[dialog]
-       (let ((label (cdr (assoc "label" dialog)))
-             (location (cdr (assoc "location" dialog)))
-             (type (cdr (assoc "type" dialog)))
-             (lines (cdr (assoc "lines" dialog))))
-         (execute-query-tree '("INSERT INTO dialogs"
-                               " (scenario_id, ord, label, location, type)"
-                               " VALUES (?, ?, ?, ?, ?)")
-                             id dialog-order label location type)
-         (set! dialog-order (+ dialog-order 1024))
-         (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
-               (line-order 0))
-           (for-each
-            (^[line]
-              (let ((character (cdr (assoc "character" line)))
-                    (text (cdr (assoc "text" line)))
-                    (options (let1 opt (assoc "options" line)
-                               (if opt (cdr opt) ()))))
-                (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
-                                      " VALUES (?, ?, ?, ?)")
-                                    dialog-id line-order character text)
-                (let ((line-id (sqlite3-last-id *sqlite-conn*))
-                      (option-order 0))
-                  (for-each
-                   (^[option]
-                     (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
-                                           " VALUES (?, ?, ?)")
-                                         line-id option-order option)
-                     (set! option-order (+ option-order 1024)))
-                   options))
-                (set! line-order (+ line-order 1024))
-                ))
-            lines))
-         )
-       )
+       (convert-dialog-to-relations await id dialog dialog-order)
+       (set! dialog-order (+ dialog-order 1024)))
      json)
     "OK"
     ))

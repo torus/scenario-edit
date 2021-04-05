@@ -26,6 +26,9 @@ function submit(arg) {
     }
 
     var input_elem
+    if (input_elem = document.querySelector('#ord-input')) {
+        data["ord"] = input_elem.value
+    }
     if (input_elem = document.querySelector('#original-label-input')) {
         data["original-label"] = input_elem.value
     }
