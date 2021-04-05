@@ -449,27 +449,35 @@
           (cdr val)
           (error #"paramter not specified: ~|name|"))))
 
-  (let ((type (get "type"))
-        (orig-label (get "original-label"))
-        (label (get "label"))
-        (location (get "location"))
-        (lines (get "lines")))
-    (let ((filename (json-file-path data-id))
-          (modified
-		   (let ((content (read-scenario-from-db await data-id)))
-             (reverse
-              (fold (^[conv rest]
-                      (cons
-                       (if (string=? orig-label (cdr (assoc "label" conv)))
-                           `((label . ,label)
-                             (location . ,location)
-                             (type . ,type)
-                             (lines . ,lines))
-                           conv)
-                       rest))
-                    ()
-                    content)))))
-      (overwrite-json-file await modified filename))))
+  (let ((orig-label (get "original-label")))
+    (with-query-result/tree
+     await
+     '("SELECT dialog_id, ord FROM dialogs"
+       " WHERE label = ? AND scenario_id = ?")
+     `(,orig-label ,data-id)
+     (^[rset]
+       (for-each
+        (^[row]
+          (let ((dialog-id (vector-ref row 0))
+                (ord (vector-ref row 1)))
+            (print #"Found dialog ~|dialog-id| to delete.")
+
+            (execute-query-tree '("DELETE FROM options "
+                                  " WHERE line_id ="
+                                  " (SELECT line_id FROM lines WHERE dialog_id = ?)")
+                                dialog-id)
+
+            (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
+                                dialog-id)
+
+            (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
+                                dialog-id)
+
+            (convert-dialog-to-relations await data-id form-data ord)
+
+            ))
+        rset)))
+    'done))
 
 (define (delete-conversation await data-id label)
 (let* ((filename (json-file-path data-id))
@@ -498,9 +506,7 @@
   (cond ((assoc "ord" form-data)
          (insert-conversation await data-id form-data))
         ((assoc "original-label" form-data)
-         (update-existing-conversation await data-id form-data))
-        #;((assoc "previous-label" form-data)
-         (insert-conversation await data-id form-data))))
+         (update-existing-conversation await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
   (let ((dialog-writer (make-csv-writer ","))
