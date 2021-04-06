@@ -480,16 +480,34 @@
     'done))
 
 (define (delete-conversation await data-id label)
-(let* ((filename (json-file-path data-id))
-           (modified (let ((content (read-scenario-from-db await data-id)))
-                              (reverse
-                               (fold (^[conv rest]
-                                        (if (string=? label (cdr (assoc "label" conv)))
-                                            rest
-                                            (cons conv rest)))
-                                     ()
-                                     content)))))
-  (overwrite-json-file await modified filename)))
+  (with-query-result/tree
+   await
+   '("SELECT dialog_id, ord FROM dialogs"
+     " WHERE label = ? AND scenario_id = ?")
+   `(,label ,data-id)
+   (^[rset]
+     (for-each
+      (^[row]
+        (let ((dialog-id (vector-ref row 0))
+              (ord (vector-ref row 1)))
+          (print #"Found dialog ~|dialog-id| to delete.")
+
+          (execute-query-tree '("DELETE FROM options "
+                                " WHERE line_id ="
+                                " (SELECT line_id FROM lines WHERE dialog_id = ?)")
+                              dialog-id)
+
+          (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
+                              dialog-id)
+
+          (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
+                              dialog-id)
+
+
+          ))
+      rset)))
+
+  'done)
 
 (define (insert-conversation await data-id form-data)
   (define (get name)
