@@ -4,8 +4,8 @@ services:
     build: .
     volumes:
       - .:/code
-      - ../NekoGameDemo/Dev/Dialogues/json:/code/json
-      - ../NekoGameDemo/Dev/Dialogues:/code/csv
+      - ../UkiyoDemo/Dev/Dialogues/json:/code/json
+      - ../UkiyoDemo/Dev/Dialogues:/code/csv
     ports:
       - "2222:2222"
     expose:

@@ -15,7 +15,7 @@
       (reject "not an object")))
 
 (define (json-match-array json resolve reject)
-  (vector-for-each (^v (resolve v)) json)
+  (for-each (^v (resolve v)) json)
   #t)
 
 (define (json-match json proc)

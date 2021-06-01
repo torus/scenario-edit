@@ -549,7 +549,7 @@
 						 ((% "type" (cut set! type <>)) d)
 						 ((% "lines"
 							 (^d
-							  (set! linecount (vector-length d))
+							  (set! linecount (length d))
 							  (let ((char #f) (text #f) (num 0) (optcount 0))
 								((@ (^j
 									 ((% "character" (cut set! char <>)) j)
@@ -557,13 +557,13 @@
 									 (when (assoc "options" j)
 									   ((% "options"
 										   (^d
-											(set! optcount (vector-length d))
+											(set! optcount (length d))
 											(let ((optnum 0))
 											  ((@
 												(^[option]
 												  (option-writer option-port
 																 `(,#"~|label|_~|num|_~|optnum|"
-																   ,option))
+																   ,(cdr (assoc "text" option))))
 												  (inc! optnum)
 												  ))
 											   d))))
@@ -728,7 +728,7 @@
      (violet-async
       (^[await]
         (let-params req ([id "p:1"])
-					(let ((result #?=(convert-scenario-file-to-relations await id)))
+					(let ((result (convert-scenario-file-to-relations await id)))
                       (respond/ok req (cons "<!DOCTYPE html>"
 											(sxml:sxml->html
                                              (create-page
