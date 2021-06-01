@@ -58,7 +58,7 @@
 
 (define (fas-icon name)
   `(span (@ (class "icon"))
-		 (i (@ (class ,#"fas fa-~name")) "")))
+         (i (@ (class ,#"fas fa-~name")) "")))
 
 (define (render-line char text options)
   `(div (@ (class "columns"))
@@ -66,11 +66,11 @@
              ,char)
         (div (@ (class "column"))
              ,text
-			 ,(if (null? options)
-				  ()
-				  `(ul
-					,@(map (^o `(li ,(fas-icon "angle-right")
-									,(cdr (assoc "text" o))))
+             ,(if (null? options)
+                  ()
+                  `(ul
+                    ,@(map (^o `(li ,(fas-icon "angle-right")
+                                    ,(cdr (assoc "text" o))))
                            options))))))
 
 (define (render-lines lines)
@@ -78,24 +78,24 @@
    (fold (^[line rest]
            (let ((char (cdr (assoc "character" line)))
                  (text (cdr (assoc "text" line)))
-				 (options (let ((opt (assoc "options" line)))
-							(if opt (cdr opt) ()))))
+                 (options (let ((opt (assoc "options" line)))
+                            (if opt (cdr opt) ()))))
              (cons (render-line char text options) rest)))
          () lines)))
 
 (define (edit-buttons data-id label)
   `((div (@ (class "column is-1"))
-		 (form (@ (method "post")
+         (form (@ (method "post")
                   (action ,#"/scenarios/~|data-id|/delete"))
                (input (@ (type "hidden")
-						 (name "label")
-						 (value ,label)))
+                         (name "label")
+                         (value ,label)))
                (button (@ (class "button is-danger"))
-					   ,(fas-icon "trash-alt"))))
-	(div (@ (class "column is-1"))
-		 (a (@ (class "button")
+                       ,(fas-icon "trash-alt"))))
+    (div (@ (class "column is-1"))
+         (a (@ (class "button")
                (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
-			,(fas-icon "edit")))))
+            ,(fas-icon "edit")))))
 
 (define (render-conversation conv data-id . additioanl-elements)
   (define (get name)
@@ -103,12 +103,12 @@
 
   (let ((label (get "label"))
         (lines (get "lines"))
-		(loc (get "location"))
+        (loc (get "location"))
         (ord (get "ord")))
     `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
-						,@additioanl-elements
+                        ,@additioanl-elements
                         (div (@ (class "column is-2"))
                              (span (@ (class "tag is-info"))
                                    ,(get "type")))
@@ -116,7 +116,7 @@
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
                              (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-								   ,loc)))
+                                   ,loc)))
                         (div (@ (class "column"))
                              (p (@ (class "has-text-grey"))
                                 "0x" ,(number->string ord 16))))
@@ -124,7 +124,7 @@
 
 (define (render-conversation/edit-button conv data-id)
   (render-conversation conv data-id
-					   (edit-buttons data-id (cdr (assoc "label" conv)))))
+                       (edit-buttons data-id (cdr (assoc "label" conv)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
 
@@ -136,40 +136,40 @@
 
 (define (render-option-form option)
   `(div (@ (class "columns is-vcentered"))
-		(div (@ (class "column is-one-fifth has-text-right"))
-			 ,(fas-icon "angle-right"))
-		(div (@ (class "column"))
-			 (input (@ (class "input option-input") (type "text")
-					   (placeholder "選択肢")
-					   (value ,option))))))
+        (div (@ (class "column is-one-fifth has-text-right"))
+             ,(fas-icon "angle-right"))
+        (div (@ (class "column"))
+             (input (@ (class "input option-input") (type "text")
+                       (placeholder "選択肢")
+                       (value ,option))))))
 
 (define (render-line-form char text options)
   `((div (@ (class "line-form"))
-		 (div (@ (class "columns"))
-			  (div (@ (class "column is-one-fifth"))
-				   (input (@ (class "input character-input")
-							 (type "text")
-							 (placeholder "キャラクター")
-							 (value ,char))))
-			  (div (@ (class "column"))
-				   (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
-							 (value ,text)))))
+         (div (@ (class "columns"))
+              (div (@ (class "column is-one-fifth"))
+                   (input (@ (class "input character-input")
+                             (type "text")
+                             (placeholder "キャラクター")
+                             (value ,char))))
+              (div (@ (class "column"))
+                   (input (@ (class "input line-input") (type "text") (placeholder "セリフ")
+                             (value ,text)))))
 
-		 (div (@ (class "option-fields"))
-			  ""
-			  ,@(reverse
-				 (fold (^[option rest]
-						 (cons
-						  (render-option-form option)
-						  rest))
-					   () options)))
+         (div (@ (class "option-fields"))
+              ""
+              ,@(reverse
+                 (fold (^[option rest]
+                         (cons
+                          (render-option-form option)
+                          rest))
+                       () options)))
 
-		 (div (@ (class "columns"))
-			  (div (@ (class "column"))
-				   (div (@ (class "field has-text-centered"))
-						(a (@ (class "button add-option-button"))
-						   ,(fas-icon "angle-right")
-						   (span (@ (style "margin-left: 0.5ex"))"選択肢を追加"))))))))
+         (div (@ (class "columns"))
+              (div (@ (class "column"))
+                   (div (@ (class "field has-text-centered"))
+                        (a (@ (class "button add-option-button"))
+                           ,(fas-icon "angle-right")
+                           (span (@ (style "margin-left: 0.5ex"))"選択肢を追加"))))))))
 
 (define (render-conversation-form conv data-id hidden-inputs)
   (define (get name default)
@@ -210,12 +210,12 @@
                                        (value ,(get "location" ""))))))))
 
   (define (line-fields lines)
-	(reverse
+    (reverse
      (fold (^[line rest]
              (let ((char (cdr (assoc "character" line)))
                    (text (cdr (assoc "text" line)))
-				   (options (let ((opt (assoc "options" line)))
-							  (if opt (cdr opt) ()))))
+                   (options (let ((opt (assoc "options" line)))
+                              (if opt (cdr opt) ()))))
                (append (render-line-form char text options) rest)))
            () lines)))
 
@@ -229,30 +229,30 @@
                        ,hidden-inputs
                        ,(conv-form)
                        (div (@ (id "line-fields"))
-							""
+                            ""
                             ,@(line-fields lines))
 
                        (div (@ (class "columns"))
-							(div (@ (class "column"))
-								 (div (@ (class "field has-text-centered"))
-									  (a (@ (class "button")
-											(id "add-line-button"))
-										 ,(fas-icon "comment")
-										 (span (@ (style "margin-left: 0.5ex"))"セリフを追加")))))
+                            (div (@ (class "column"))
+                                 (div (@ (class "field has-text-centered"))
+                                      (a (@ (class "button")
+                                            (id "add-line-button"))
+                                         ,(fas-icon "comment")
+                                         (span (@ (style "margin-left: 0.5ex"))"セリフを追加")))))
 
                        (div (@ (class "columns"))
-							(div (@ (class "column"))
-								 (div (@ (class "field is-grouped is-grouped-right"))
-									  (p (@ (class "control"))
-										 (button (@ (class "button is-primary")) "更新"))
-									  (p (@ (class "control"))
-										 (a (@ (class "button is-light")
-											   (href ,#"/scenarios/~data-id"))
-											"キャンセル")))))))
+                            (div (@ (class "column"))
+                                 (div (@ (class "field is-grouped is-grouped-right"))
+                                      (p (@ (class "control"))
+                                         (button (@ (class "button is-primary")) "更新"))
+                                      (p (@ (class "control"))
+                                         (a (@ (class "button is-light")
+                                               (href ,#"/scenarios/~data-id"))
+                                            "キャンセル")))))))
             (div (@ (style "display: none")
                     (id "hidden-field"))
                  ,@(render-line-form "" "" ()))
-			(div (@ (style "display: none")
+            (div (@ (style "display: none")
                     (id "hidden-option-field"))
                  ,@(render-option-form ""))))
 
@@ -263,7 +263,7 @@
                (a (@ (class "button")
                      (href ,#"/scenarios/~|data-id|/insert/~|ord-hex|#form"))
                   ,(fas-icon "comments")
-				  (span (@ (style "margin-left: 0.5ex"))"会話を追加"))))))
+                  (span (@ (style "margin-left: 0.5ex"))"会話を追加"))))))
 
 (define (read-scenario-file await id)
   (await (^[] (with-input-from-file (json-file-path id) parse-json))))
@@ -355,7 +355,7 @@
 
 (define (read-and-render-scenario-file/insert await id ord)
   (define (new-form ord)
-	(render-conversation-form #f id
+    (render-conversation-form #f id
                               `(input (@ (id "ord-input")
                                          (type "hidden")
                                          (value ,ord)))))
@@ -374,7 +374,7 @@
 
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
-	(render-conversation-form conv id
+    (render-conversation-form conv id
                               `(input (@ (id "original-label-input")
                                          (type "hidden")
                                          (value ,label)))))
@@ -392,8 +392,8 @@
 
 (define (scenario-page-header await id)
   `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert")) ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
-	  " "
-	  (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv")) ,(fas-icon "save") (span "Update CSV/JSON"))))
+      " "
+      (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv")) ,(fas-icon "save") (span "Update CSV/JSON"))))
 
 (define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
@@ -404,7 +404,7 @@
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
-											 (scenario-page-header await id)
+                                             (scenario-page-header await id)
                                              rendered
                                              ))))))))))
 
@@ -441,10 +441,10 @@
               (^[port tmpfile]
                 (with-output-to-port port
                   (^[]
-					(guard (e [else (report-error e)])
-						   (construct-json new-json)
-						   )
-					(flush)))
+                    (guard (e [else (report-error e)])
+                           (construct-json new-json)
+                           )
+                    (flush)))
                 (sys-system #"jq . < ~tmpfile > ~filename"))
               :directory "json")
              'done
@@ -538,60 +538,60 @@
   (let ((dialog-writer (make-csv-writer ","))
         (option-writer (make-csv-writer ","))
         (meta-writer (make-csv-writer ","))
-		(json (read-scenario-from-db await data-id)))
-	#?=(overwrite-json-file await json (json-file-path data-id))
+        (json (read-scenario-from-db await data-id)))
+    #?=(overwrite-json-file await json (json-file-path data-id))
     (call-with-output-file "csv/Dialog_meta.csv"
       (^[meta-port]
         (call-with-output-file "csv/Dialog.csv"
           (^[dialog-port]
-			(call-with-output-file "csv/Dialog_options.csv"
-			  (^[option-port]
-				(dialog-writer dialog-port '("" "character" "text" "options"))
-				(option-writer option-port '("" "option"))
-				(meta-writer meta-port '("" "type" "location" "count"))
-				(json-match
-				 json
-				 (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
-				 )))))))))
+            (call-with-output-file "csv/Dialog_options.csv"
+              (^[option-port]
+                (dialog-writer dialog-port '("" "character" "text" "options"))
+                (option-writer option-port '("" "option"))
+                (meta-writer meta-port '("" "type" "location" "count"))
+                (json-match
+                 json
+                 (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
+                 )))))))))
 
 (define (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
   (^[% @]
-	(@ (^d
-		(let ((label #f) (location #f) (type #f) (linecount 0))
-		  ((% "label" (cut set! label <>)) d)
-		  ((% "location" (cut set! location <>)) d)
-		  ((% "type" (cut set! type <>)) d)
-		  ((% "lines"
-			  (^d
-			   (set! linecount (vector-length d))
-			   (let ((char #f) (text #f) (num 0) (optcount 0))
-				 ((@ (^j
-					  ((% "character" (cut set! char <>)) j)
-					  ((% "text" (cut set! text <>)) j)
-					  (when (assoc "options" j)
-						((% "options"
-							(^d
-							 (set! optcount (vector-length d))
-							 (let ((optnum 0))
-							   ((@
-								 (^[option]
-								   (option-writer option-port
-												  `(,#"~|label|_~|num|_~|optnum|"
-													,(cdr (assoc "text" option))))
-								   (inc! optnum)
-								   ))
-								d))))
-						 j))
-					  (dialog-writer dialog-port
-									 `(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
-					  (inc! num)
-					  #t
-					  j))
-				  d))))
-		   d)
-		  (meta-writer meta-port
-					   `(,label ,type ,location
-								,(x->string linecount))))))))
+    (@ (^d
+        (let ((label #f) (location #f) (type #f) (linecount 0))
+          ((% "label" (cut set! label <>)) d)
+          ((% "location" (cut set! location <>)) d)
+          ((% "type" (cut set! type <>)) d)
+          ((% "lines"
+              (^d
+               (set! linecount (vector-length d))
+               (let ((char #f) (text #f) (num 0) (optcount 0))
+                 ((@ (^j
+                      ((% "character" (cut set! char <>)) j)
+                      ((% "text" (cut set! text <>)) j)
+                      (when (assoc "options" j)
+                        ((% "options"
+                            (^d
+                             (set! optcount (vector-length d))
+                             (let ((optnum 0))
+                               ((@
+                                 (^[option]
+                                   (option-writer option-port
+                                                  `(,#"~|label|_~|num|_~|optnum|"
+                                                    ,(cdr (assoc "text" option))))
+                                   (inc! optnum)
+                                   ))
+                                d))))
+                         j))
+                      (dialog-writer dialog-port
+                                     `(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
+                      (inc! num)
+                      #t
+                      j))
+                  d))))
+           d)
+          (meta-writer meta-port
+                       `(,label ,type ,location
+                                ,(x->string linecount))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
   (^[req app]
@@ -627,35 +627,35 @@
   (define (get name conv)
     (cdr (assoc name conv)))
   (let ((content (read-scenario-from-db await id)))
-	`(div (@ (class "container"))
-		  ((p (a (@ (href ,#"/scenarios/~id"))
-				 ,(fas-icon "chevron-left")
-				 "戻る"))
-		   (div (@ (class "block"))
-				(h2 (@ (class "title is-2")) ,loc)
-				(table (@ (class "table"))
-					   ,(map
-						 (^[conv]
-						   (let ((label (get "label" conv)))
-							 `(tr
-							   (td (span (@ (class "tag is-info"))
-										 ,(get "type" conv)))
-							   (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
-									  ,label)))))
-						 (filter
-						  (^[conv]
-							(string=? loc (get "location" conv)))
-						  content))))))
-	))
+    `(div (@ (class "container"))
+          ((p (a (@ (href ,#"/scenarios/~id"))
+                 ,(fas-icon "chevron-left")
+                 "戻る"))
+           (div (@ (class "block"))
+                (h2 (@ (class "title is-2")) ,loc)
+                (table (@ (class "table"))
+                       ,(map
+                         (^[conv]
+                           (let ((label (get "label" conv)))
+                             `(tr
+                               (td (span (@ (class "tag is-info"))
+                                         ,(get "type" conv)))
+                               (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
+                                      ,label)))))
+                         (filter
+                          (^[conv]
+                            (string=? loc (get "location" conv)))
+                          content))))))
+    ))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/locations\/([^\/]+)\/?$/
   (^[req app]
      (violet-async
       (^[await]
         (let-params req ([id "p:1"] [loc "p:2"])
-					(let ((rendered (render-location await id loc)))
+                    (let ((rendered (render-location await id loc)))
                       (respond/ok req (cons "<!DOCTYPE html>"
-											(sxml:sxml->html
+                                            (sxml:sxml->html
                                              (create-page
                                               rendered
                                               )))))))))
@@ -689,7 +689,7 @@
                              (sxml:sxml->html
                               (create-page
                                '(p "done")
-							   '(a (@ (href "/")) "Back Home")
+                               '(a (@ (href "/")) "Back Home")
                                ))))))))
 
 (define (convert-dialog-to-relations await id dialog dialog-order)
@@ -742,49 +742,49 @@
      (violet-async
       (^[await]
         (let-params req ([id "p:1"])
-					(let ((result (convert-scenario-file-to-relations await id)))
+                    (let ((result (convert-scenario-file-to-relations await id)))
                       (respond/ok req (cons "<!DOCTYPE html>"
-											(sxml:sxml->html
+                                            (sxml:sxml->html
                                              (create-page
                                               result " "
-											  '(a (@ (href "/")) "Back Home")
+                                              '(a (@ (href "/")) "Back Home")
                                               ))))))))))
 
 (define (create-tables)
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
-						"  scenario_id INTEGER PRIMARY KEY"
+                        "  scenario_id INTEGER PRIMARY KEY"
                         ", title       TEXT NOT NULL"
                         ", initial_location INTEGER"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
-						"  dialog_id   INTEGER PRIMARY KEY"
-						", scenario_id INTEGER NOT NULL"
-						", ord       INTEGER NOT NULL"
+                        "  dialog_id   INTEGER PRIMARY KEY"
+                        ", scenario_id INTEGER NOT NULL"
+                        ", ord       INTEGER NOT NULL"
                         ", label       TEXT NOT NULL"
-						", location    TEXT NOT NULL"
-						", type        TEXT NOT NULL"
+                        ", location    TEXT NOT NULL"
+                        ", type        TEXT NOT NULL"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
-						"  line_id     INTEGER PRIMARY KEY"
-						", dialog_id   INTEGER NOT NULL"
-						", ord       INTEGER NOT NULL"
+                        "  line_id     INTEGER PRIMARY KEY"
+                        ", dialog_id   INTEGER NOT NULL"
+                        ", ord       INTEGER NOT NULL"
                         ", character   TEXT NOT NULL"
-						", text        TEXT NOT NULL"
+                        ", text        TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_required ("
-						"  dialog_id   INTEGER NOT NULL"
-						", flag        TEXT NOT NULL"
+                        "  dialog_id   INTEGER NOT NULL"
+                        ", flag        TEXT NOT NULL"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_exclusive ("
-						"  dialog_id   INTEGER NOT NULL"
-						", flag        TEXT NOT NULL"
+                        "  dialog_id   INTEGER NOT NULL"
+                        ", flag        TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS options ("
-						"  line_id     INTEGER NOT NULL"
-						", ord         INTEGER NOT NULL"
-						", text        TEXT NOT NULL"
+                        "  line_id     INTEGER NOT NULL"
+                        ", ord         INTEGER NOT NULL"
+                        ", text        TEXT NOT NULL"
                         ")"))
   )
 
@@ -792,4 +792,4 @@
   (let ((conn (dbi-connect "dbi:sqlite3:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
     (print "Sqlite connected")
-	(flush)))
+    (flush)))
