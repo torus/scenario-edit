@@ -269,7 +269,7 @@
   (await (^[] (with-input-from-file (json-file-path id) parse-json))))
 
 (define (read-scenario-from-db await id)
-  #?=(with-query-result/tree
+  (with-query-result/tree
    await
    '("SELECT dialog_id, label, location, type, ord"
      " FROM dialogs"
@@ -277,14 +277,14 @@
      " ORDER BY ord")
    `(,id)
    (^[rset]
-     (map
+     (map-to <vector>
       (^[row]
         (let ((dialog-id (vector-ref row 0))
               (label (vector-ref row 1))
               (loc (vector-ref row 2))
               (typ (vector-ref row 3))
               (ord (vector-ref row 4)))
-          `(("id" . dialog-id)
+          `(("id" . ,dialog-id)
             ("label" . ,label)
             ("type" . ,typ)
             ("location" . ,loc)
@@ -298,13 +298,13 @@
                  " ORDER by ord")
                `(,dialog-id)
                (^[rset]
-                 (map
+                 (map-to <vector>
                   (^[row]
                     (let ((line-id (vector-ref row 0))
                           (char (vector-ref row 1))
                           (text (vector-ref row 2))
                           (ord (vector-ref row 3)))
-                      `(("id" . line-id)
+                      `(("id" . ,line-id)
                         ("character" . ,char)
                         ("ord" . ,ord)
                         ("text" . ,text)
@@ -315,7 +315,7 @@
                              " WHERE line_id = ? ORDER BY ord")
                            `(,line-id)
                            (^[rset]
-                             (map
+                             (map-to <vector>
                               (^[row]
                                 (let ((text (vector-ref row 0))
                                       (ord (vector-ref row 1)))
@@ -390,6 +390,11 @@
                  ()
                  content))))
 
+(define (scenario-page-header await id)
+  `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert")) ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
+	  " "
+	  (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv")) ,(fas-icon "save") (span "Update CSV/JSON"))))
+
 (define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
     (violet-async
@@ -399,6 +404,7 @@
                      (respond/ok req (cons "<!DOCTYPE html>"
                                            (sxml:sxml->html
                                             (create-page
+											 (scenario-page-header await id)
                                              rendered
                                              ))))))))))
 
@@ -430,13 +436,15 @@
 
 (define (overwrite-json-file await json filename)
   (await (^[]
-           (let ((new-json (list->vector json)))
+           (let ((new-json json))
              (call-with-temporary-file
               (^[port tmpfile]
                 (with-output-to-port port
                   (^[]
-                    (construct-json new-json)
-                    (flush)))
+					(guard (e [else (report-error e)])
+						   (construct-json new-json)
+						   )
+					(flush)))
                 (sys-system #"jq . < ~tmpfile > ~filename"))
               :directory "json")
              'done
@@ -529,7 +537,9 @@
 (define (convert-json-to-csv await data-id)
   (let ((dialog-writer (make-csv-writer ","))
         (option-writer (make-csv-writer ","))
-        (meta-writer (make-csv-writer ",")))
+        (meta-writer (make-csv-writer ","))
+		(json (read-scenario-from-db await data-id)))
+	#?=(overwrite-json-file await json (json-file-path data-id))
     (call-with-output-file "csv/Dialog_meta.csv"
       (^[meta-port]
         (call-with-output-file "csv/Dialog.csv"
@@ -540,44 +550,48 @@
 				(option-writer option-port '("" "option"))
 				(meta-writer meta-port '("" "type" "location" "count"))
 				(json-match
-				 (read-scenario-from-db await data-id)
-				 (^[% @]
-				   (@ (^d
-					   (let ((label #f) (location #f) (type #f) (linecount 0))
-						 ((% "label" (cut set! label <>)) d)
-						 ((% "location" (cut set! location <>)) d)
-						 ((% "type" (cut set! type <>)) d)
-						 ((% "lines"
-							 (^d
-							  (set! linecount (length d))
-							  (let ((char #f) (text #f) (num 0) (optcount 0))
-								((@ (^j
-									 ((% "character" (cut set! char <>)) j)
-									 ((% "text" (cut set! text <>)) j)
-									 (when (assoc "options" j)
-									   ((% "options"
-										   (^d
-											(set! optcount (length d))
-											(let ((optnum 0))
-											  ((@
-												(^[option]
-												  (option-writer option-port
-																 `(,#"~|label|_~|num|_~|optnum|"
-																   ,(cdr (assoc "text" option))))
-												  (inc! optnum)
-												  ))
-											   d))))
-										j))
-									 (dialog-writer dialog-port
-													`(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
-									 (inc! num)
-									 #t
-									 j))
-								 d))))
-						  d)
-						 (meta-writer meta-port
-									  `(,label ,type ,location
-											   ,(x->string linecount))))))))))))))))
+				 json
+				 (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
+				 )))))))))
+
+(define (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
+  (^[% @]
+	(@ (^d
+		(let ((label #f) (location #f) (type #f) (linecount 0))
+		  ((% "label" (cut set! label <>)) d)
+		  ((% "location" (cut set! location <>)) d)
+		  ((% "type" (cut set! type <>)) d)
+		  ((% "lines"
+			  (^d
+			   (set! linecount (vector-length d))
+			   (let ((char #f) (text #f) (num 0) (optcount 0))
+				 ((@ (^j
+					  ((% "character" (cut set! char <>)) j)
+					  ((% "text" (cut set! text <>)) j)
+					  (when (assoc "options" j)
+						((% "options"
+							(^d
+							 (set! optcount (vector-length d))
+							 (let ((optnum 0))
+							   ((@
+								 (^[option]
+								   (option-writer option-port
+												  `(,#"~|label|_~|num|_~|optnum|"
+													,(cdr (assoc "text" option))))
+								   (inc! optnum)
+								   ))
+								d))))
+						 j))
+					  (dialog-writer dialog-port
+									 `(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
+					  (inc! num)
+					  #t
+					  j))
+				  d))))
+		   d)
+		  (meta-writer meta-port
+					   `(,label ,type ,location
+								,(x->string linecount))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
   (^[req app]
