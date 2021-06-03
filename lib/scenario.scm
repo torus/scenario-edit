@@ -34,7 +34,7 @@
     (head
      (meta (@ (charset "utf-8")))
      (meta (@ (name "viewport") (content "width=device-width, initial-scale=1")))
-     (title "Starter Template · Bootstrap")
+     (title "Scenario Edit")
      (link (@ (rel "stylesheet")
               (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css")))
      (script (@ (src "https://kit.fontawesome.com/515fd4f349.js")
@@ -44,17 +44,16 @@
      (script (@ (src "/static/script.js")) "")))
   )
 
+(define (ok req . elements)
+  (respond/ok req (cons "<!DOCTYPE html>"
+                        (sxml:sxml->html
+                         (apply create-page elements)))))
 
 (define-http-handler "/"
   (^[req app]
     (violet-async
      (^[await]
-       (respond/ok req (cons "<!DOCTYPE html>"
-                               (sxml:sxml->html
-                                (create-page
-                                 `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1")))
-                                 ))))
-       ))))
+       (ok req `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))))))))
 
 (define (fas-icon name)
   `(span (@ (class "icon"))
@@ -215,10 +214,11 @@
              (let ((char (cdr (assoc "character" line)))
                    (text (cdr (assoc "text" line)))
                    (options (let ((opt (assoc "options" line)))
-                              (if opt (cdr opt) ()))))
+                              (if opt
+				  (map (^o (cdr (assoc "text" o)))(cdr opt))
+				  ()))))
                (append (render-line-form char text options) rest)))
            () lines)))
-
 
   `(section (@ (class "section")
                (id "form"))
@@ -391,9 +391,11 @@
                  content))))
 
 (define (scenario-page-header await id)
-  `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert")) ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
+  `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert"))
+         ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
       " "
-      (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv")) ,(fas-icon "save") (span "Update CSV/JSON"))))
+      (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv"))
+         ,(fas-icon "save") (span "Update CSV/JSON"))))
 
 (define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
@@ -401,12 +403,7 @@
      (^[await]
        (let-params req ([id "p:1"])
                    (let ((rendered (read-and-render-scenario-file await id)))
-                     (respond/ok req (cons "<!DOCTYPE html>"
-                                           (sxml:sxml->html
-                                            (create-page
-                                             (scenario-page-header await id)
-                                             rendered
-                                             ))))))))))
+                     (ok req (scenario-page-header await id) rendered)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/insert\/(.*)/
   (^[req app]
@@ -414,12 +411,9 @@
      (^[await]
        (let-params req ([id "p:1"]
                         [ord "p:2" :convert (cut string->number <> 16)])
-                   (let ((rendered (read-and-render-scenario-file/insert await id ord)))
-                     (respond/ok req (cons "<!DOCTYPE html>"
-                                           (sxml:sxml->html
-                                            (create-page
-                                             rendered
-                                             ))))))))))
+                   (let ((rendered
+                          (read-and-render-scenario-file/insert await id ord)))
+                     (ok req rendered)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/edit\/(.*)/
   (^[req app]
@@ -427,12 +421,9 @@
      (^[await]
        (let-params req ([id "p:1"]
                         [label "p:2"])
-                   (let ((rendered (read-and-render-scenario-file/edit await id label)))
-                     (respond/ok req (cons "<!DOCTYPE html>"
-                                           (sxml:sxml->html
-                                            (create-page
-                                             rendered
-                                             ))))))))))
+                   (let ((rendered
+                          (read-and-render-scenario-file/edit await id label)))
+                     (ok req rendered)))))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]
@@ -551,10 +542,14 @@
                 (meta-writer meta-port '("" "type" "location" "count"))
                 (json-match
                  json
-                 (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
+                 (write-with-csv-writers dialog-port dialog-writer
+                                         option-port option-writer
+                                         meta-port meta-writer)
                  )))))))))
 
-(define (write-with-csv-writers dialog-port dialog-writer option-port option-writer meta-port meta-writer)
+(define (write-with-csv-writers dialog-port dialog-writer
+                                option-port option-writer
+                                meta-port meta-writer)
   (^[% @]
     (@ (^d
         (let ((label #f) (location #f) (type #f) (linecount 0))
@@ -583,7 +578,8 @@
                                 d))))
                          j))
                       (dialog-writer dialog-port
-                                     `(,#"~|label|_~num" ,char ,text ,(x->string optcount)))
+                                     `(,#"~|label|_~num" ,char ,text
+                                       ,(x->string optcount)))
                       (inc! num)
                       #t
                       j))
@@ -599,7 +595,7 @@
      (^[await]
        (let-params req ([data-id "p:1"])
                    (convert-json-to-csv await data-id)
-                   (respond/ok req "ok")
+                   (ok req "ok")
                    )))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/submit\/(.*)/
@@ -645,8 +641,7 @@
                          (filter
                           (^[conv]
                             (string=? loc (get "location" conv)))
-                          content))))))
-    ))
+                          content))))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/locations\/([^\/]+)\/?$/
   (^[req app]
@@ -654,12 +649,7 @@
       (^[await]
         (let-params req ([id "p:1"] [loc "p:2"])
                     (let ((rendered (render-location await id loc)))
-                      (respond/ok req (cons "<!DOCTYPE html>"
-                                            (sxml:sxml->html
-                                             (create-page
-                                              rendered
-                                              )))))))))
-)
+                      (ok req rendered)))))))
 
 (define-http-handler #/^\/static\// (file-handler))
 
@@ -685,12 +675,8 @@
     (violet-async
      (^[await]
        (await create-tables)
-       (respond/ok req (cons "<!DOCTYPE html>"
-                             (sxml:sxml->html
-                              (create-page
-                               '(p "done")
-                               '(a (@ (href "/")) "Back Home")
-                               ))))))))
+       (ok req '(p "done")
+           '(a (@ (href "/")) "Back Home"))))))
 
 (define (convert-dialog-to-relations await id dialog dialog-order)
   (let ((label (cdr (assoc "label" dialog)))
@@ -743,12 +729,7 @@
       (^[await]
         (let-params req ([id "p:1"])
                     (let ((result (convert-scenario-file-to-relations await id)))
-                      (respond/ok req (cons "<!DOCTYPE html>"
-                                            (sxml:sxml->html
-                                             (create-page
-                                              result " "
-                                              '(a (@ (href "/")) "Back Home")
-                                              ))))))))))
+                      (ok req result " " '(a (@ (href "/")) "Back Home"))))))))
 
 (define (create-tables)
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
