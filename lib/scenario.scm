@@ -53,7 +53,8 @@
   (^[req app]
     (violet-async
      (^[await]
-       (ok req `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))))))))
+       (ok req `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
+                    (li (a (@ (href "/admin/setup")) "Setup"))))))))
 
 (define (fas-icon name)
   `(span (@ (class "icon"))
@@ -433,8 +434,7 @@
                 (with-output-to-port port
                   (^[]
                     (guard (e [else (report-error e)])
-                           (construct-json new-json)
-                           )
+                           (construct-json new-json))
                     (flush)))
                 (sys-system #"jq . < ~tmpfile > ~filename"))
               :directory "json")
@@ -665,7 +665,8 @@
   (with-query-result await (tree->string tree) args proc))
 
 (define (execute-query str args)
-  (apply dbi-do *sqlite-conn* str '() args))
+  (guard (e [else (report-error e)])
+         (apply dbi-do *sqlite-conn* str '() args)))
 
 (define (execute-query-tree tree . args)
   (execute-query (tree->string tree) args))
@@ -740,7 +741,7 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
                         "  dialog_id   INTEGER PRIMARY KEY"
                         ", scenario_id INTEGER NOT NULL"
-                        ", ord       INTEGER NOT NULL"
+                        ", ord         INTEGER NOT NULL"
                         ", label       TEXT NOT NULL"
                         ", location    TEXT NOT NULL"
                         ", type        TEXT NOT NULL"
@@ -748,7 +749,7 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
                         "  line_id     INTEGER PRIMARY KEY"
                         ", dialog_id   INTEGER NOT NULL"
-                        ", ord       INTEGER NOT NULL"
+                        ", ord         INTEGER NOT NULL"
                         ", character   TEXT NOT NULL"
                         ", text        TEXT NOT NULL"
                         ")"))
@@ -763,9 +764,20 @@
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS options ("
-                        "  line_id     INTEGER NOT NULL"
+                        "  option_id   INTEGER PRIMARY KEY"
+                        ", line_id     INTEGER NOT NULL"
                         ", ord         INTEGER NOT NULL"
                         ", text        TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
+                        "  option_id   INTEGER NOT NULL"
+                        ", destination TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags ("
+                        "  option_id   INTEGER NOT NULL"
+                        ", flag        TEXT NOT NULL"
                         ")"))
   )
 
