@@ -306,7 +306,38 @@
            (map-to <vector>
                    (^[row]
                      (read-line-from-db await row))
-                   rset)))))))
+                   rset))))
+      ("flags-required" .
+       ,(with-query-result/tree
+         await
+         '("SELECT flag"
+           " FROM flags_required"
+           " WHERE dialog_id = ?")
+         `(,dialog-id)
+         (^[rset]
+           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+      ("flags-exclusive" .
+       ,(with-query-result/tree
+         await
+         '("SELECT flag"
+           " FROM flags_exclusive"
+           " WHERE dialog_id = ?")
+         `(,dialog-id)
+         (^[rset]
+           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+      ("flags-set" .
+       ,(with-query-result/tree
+         await
+         '("SELECT flag"
+           " FROM flags_set"
+           " WHERE dialog_id = ?")
+         `(,dialog-id)
+         (^[rset]
+           (map-to <vector> (^[row] (read-flags-from-db await row)) rset)))))))
+
+(define (read-flags-from-db await row)
+  (let ((flag (vector-ref row 0)))
+    flag))
 
 (define (read-line-from-db await row)
   (let ((line-id (vector-ref row 0))
@@ -320,19 +351,37 @@
       ("options" .
        ,(with-query-result/tree
          await
-         '("SELECT text, ord FROM options"
+         '("SELECT option_id, text, ord FROM options"
            " WHERE line_id = ? ORDER BY ord")
          `(,line-id)
          (^[rset]
            (map-to <vector>
                    (^[row]
-                     (let ((text (vector-ref row 0))
-                           (ord (vector-ref row 1)))
-                       `(("text" . ,text)
-                         ("ord" . ,ord))
-                       ))
+                     (read-option-from-db await row))
                    rset)))))))
 
+(define (read-option-from-db await row)
+  (let ((option-id (vector-ref row 0))
+        (text (vector-ref row 1))
+        (ord (vector-ref row 2)))
+    `(("text" . ,text)
+      ("ord" . ,ord)
+      ("flags-required" .
+       ,(with-query-result/tree
+         await
+         '("SELECT flag FROM option_flags_required"
+           " WHERE option_id = ?")
+         `(,option-id)
+         (^[rset]
+           (map-to <vector> (^[row] (vector-ref row 0)) rset))))
+      ("jump-to" .
+       ,(with-query-result/tree
+         await
+         '("SELECT destination FROM option_jumps"
+           " WHERE option_id = ?")
+         `(,option-id)
+         (^[rset]
+           (map-to <vector> (^[row] (vector-ref row 0)) rset)))))))
 
 (define (read-and-render-scenario-file await id)
   (define (label-of conv)
@@ -602,7 +651,10 @@
      (^[await]
        (let-params req ([data-id "p:1"])
                    (convert-json-to-csv await data-id)
-                   (ok req "ok")
+                   (ok req
+                       `(p (span "DONE! ")
+                           (span (a (@ (href ,#"/scenarios/~|data-id|"))
+                                    "Back to Scenario"))))
                    )))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/submit\/(.*)/
@@ -785,7 +837,7 @@
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags_required ("
                         "  option_id   INTEGER NOT NULL"
-                        ", destination TEXT NOT NULL"
+                        ", flag TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
