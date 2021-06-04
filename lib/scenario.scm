@@ -765,7 +765,13 @@
                         "  dialog_id   INTEGER NOT NULL"
                         ", flag        TEXT NOT NULL"
                         ")"))
+
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_exclusive ("
+                        "  dialog_id   INTEGER NOT NULL"
+                        ", flag        TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_set ("
                         "  dialog_id   INTEGER NOT NULL"
                         ", flag        TEXT NOT NULL"
                         ")"))
@@ -777,14 +783,14 @@
                         ", text        TEXT NOT NULL"
                         ")"))
 
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags_required ("
                         "  option_id   INTEGER NOT NULL"
                         ", destination TEXT NOT NULL"
                         ")"))
 
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags ("
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
                         "  option_id   INTEGER NOT NULL"
-                        ", flag        TEXT NOT NULL"
+                        ", destination TEXT NOT NULL"
                         ")"))
   )
 
