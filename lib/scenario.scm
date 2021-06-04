@@ -280,52 +280,59 @@
    (^[rset]
      (map-to <vector>
       (^[row]
-        (let ((dialog-id (vector-ref row 0))
-              (label (vector-ref row 1))
-              (loc (vector-ref row 2))
-              (typ (vector-ref row 3))
-              (ord (vector-ref row 4)))
-          `(("id" . ,dialog-id)
-            ("label" . ,label)
-            ("type" . ,typ)
-            ("location" . ,loc)
-            ("ord" . ,ord)
-            ("lines" .
-             ,(with-query-result/tree
-               await
-               '("SELECT line_id, character, text, ord"
-                 " FROM lines"
-                 " WHERE dialog_id = ?"
-                 " ORDER by ord")
-               `(,dialog-id)
-               (^[rset]
-                 (map-to <vector>
-                  (^[row]
-                    (let ((line-id (vector-ref row 0))
-                          (char (vector-ref row 1))
-                          (text (vector-ref row 2))
-                          (ord (vector-ref row 3)))
-                      `(("id" . ,line-id)
-                        ("character" . ,char)
-                        ("ord" . ,ord)
-                        ("text" . ,text)
-                        ("options" .
-                         ,(with-query-result/tree
-                           await
-                           '("SELECT text, ord FROM options"
-                             " WHERE line_id = ? ORDER BY ord")
-                           `(,line-id)
-                           (^[rset]
-                             (map-to <vector>
-                              (^[row]
-                                (let ((text (vector-ref row 0))
-                                      (ord (vector-ref row 1)))
-                                  `(("text" . ,text)
-                                    ("ord" . ,ord))
-                                ))
-                              rset)))))))
-                  rset)))))))
+        (read-dialog-from-db await row))
       rset))))
+
+(define (read-dialog-from-db await row)
+  (let ((dialog-id (vector-ref row 0))
+        (label (vector-ref row 1))
+        (loc (vector-ref row 2))
+        (typ (vector-ref row 3))
+        (ord (vector-ref row 4)))
+    `(("id" . ,dialog-id)
+      ("label" . ,label)
+      ("type" . ,typ)
+      ("location" . ,loc)
+      ("ord" . ,ord)
+      ("lines" .
+       ,(with-query-result/tree
+         await
+         '("SELECT line_id, character, text, ord"
+           " FROM lines"
+           " WHERE dialog_id = ?"
+           " ORDER by ord")
+         `(,dialog-id)
+         (^[rset]
+           (map-to <vector>
+                   (^[row]
+                     (read-line-from-db await row))
+                   rset)))))))
+
+(define (read-line-from-db await row)
+  (let ((line-id (vector-ref row 0))
+        (char (vector-ref row 1))
+        (text (vector-ref row 2))
+        (ord (vector-ref row 3)))
+    `(("id" . ,line-id)
+      ("character" . ,char)
+      ("ord" . ,ord)
+      ("text" . ,text)
+      ("options" .
+       ,(with-query-result/tree
+         await
+         '("SELECT text, ord FROM options"
+           " WHERE line_id = ? ORDER BY ord")
+         `(,line-id)
+         (^[rset]
+           (map-to <vector>
+                   (^[row]
+                     (let ((text (vector-ref row 0))
+                           (ord (vector-ref row 1)))
+                       `(("text" . ,text)
+                         ("ord" . ,ord))
+                       ))
+                   rset)))))))
+
 
 (define (read-and-render-scenario-file await id)
   (define (label-of conv)
