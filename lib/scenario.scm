@@ -135,13 +135,43 @@
         ,(if (not-empty? help) `(p (@ (class "help")) ,help) ())))
 
 (define (render-option-form option)
-  `(div (@ (class "columns is-vcentered"))
-        (div (@ (class "column is-one-fifth has-text-right"))
-             ,(fas-icon "angle-right"))
-        (div (@ (class "column"))
-             (input (@ (class "input option-input") (type "text")
-                       (placeholder "選択肢")
-                       (value ,option))))))
+  (define (get slot o)
+    (let ((val (assoc slot o)))
+      (if val
+          (cdr val)
+          #f)))
+
+  (define (flags key)
+    (apply string-append
+           (intersperse
+            " " (vector->list
+                 (or (get key option) #())))))
+
+  `(div (@ (class "option-input-group"))
+    (div (@ (class "columns is-vcentered"))
+         (div (@ (class "column is-one-fifth has-text-right"))
+              ,(fas-icon "angle-right"))
+         (div (@ (class "column"))
+              (input (@ (class "input option-input") (type "text")
+                        (placeholder "選択肢")
+                        (value ,(or (get "text" option) ""))))))
+
+    (div (@ (class "columns is-vcentered"))
+         (div (@ (class "column is-one-quarter has-text-right"))
+              ,(fas-icon "angle-right"))
+         (div (@ (class "column"))
+              (p (span (@ (class "tag is-primary"))
+                       "要求フラグ"))
+              (input (@ (class "input option-flags-req-input") (type "text")
+                        (placeholder "フラグ1 フラグ2 ...")
+                        (value ,(flags "flags-required")))))
+         (div (@ (class "column"))
+              (p (span (@ (class "tag is-warning"))
+                       "ジャンプ先"))
+              (input (@ (class "input option-jump-input") (type "text")
+                        (placeholder "会話 ID")
+                        (value ,(flags "jump-to"))))))
+    ))
 
 (define (render-line-form char text options)
   `((div (@ (class "line-form"))
@@ -169,7 +199,7 @@
                    (div (@ (class "field has-text-centered"))
                         (a (@ (class "button add-option-button"))
                            ,(fas-icon "angle-right")
-                           (span (@ (style "margin-left: 0.5ex"))"選択肢を追加"))))))))
+                           (span (@ (style "margin-left: 0.5ex")) "選択肢を追加"))))))))
 
 (define (render-conversation-form conv data-id hidden-inputs)
   (define (get name default)
@@ -186,7 +216,14 @@
   (define type (get "type" "conversation"))
 
   (define (conv-form)
-    `(div (@ (class "columns"))
+    (define (flags key)
+      (apply string-append
+             (intersperse
+              " " (vector->list
+                   (or (get key conv) #())))))
+
+    `(div
+      (div (@ (class "columns"))
           (div (@ (class "column is-2"))
                ,(form-field
                  "タイプ" #f
@@ -207,7 +244,27 @@
                             `(input (@ (class "input") (type "text")
                                        (id "location-input")
                                        (placeholder "場所")
-                                       (value ,(get "location" ""))))))))
+                                       (value ,(get "location" "")))))))
+
+      (div (@ (class "columns is-vcentered"))
+           (div (@ (class "column is-one-third"))
+                (p (span (@ (class "tag is-primary"))
+                         "要求フラグ"))
+                (input (@ (class "input flags-req-input") (type "text")
+                          (placeholder "フラグ1 フラグ2 ...")
+                          (value ,(flags "flags-required")))))
+           (div (@ (class "column is-one-third"))
+                (p (span (@ (class "tag is-danger"))
+                         "排他的フラグ"))
+                (input (@ (class "input flags-exc-input") (type "text")
+                          (placeholder "フラグ1 フラグ2 ...")
+                          (value ,(flags "flags-exclusive")))))
+           (div (@ (class "column is-one-third"))
+                (p (span (@ (class "tag is-info"))
+                         "セットするフラグ"))
+                (input (@ (class "input flags-exc-input") (type "text")
+                          (placeholder "フラグ1 フラグ2 ...")
+                          (value ,(flags "flags-set"))))))))
 
   (define (line-fields lines)
     (reverse
@@ -216,10 +273,19 @@
                    (text (cdr (assoc "text" line)))
                    (options (let ((opt (assoc "options" line)))
                               (if opt
-				  (map (^o (cdr (assoc "text" o)))(cdr opt))
-				  ()))))
+                                  (cdr opt)
+                                  #()))))
                (append (render-line-form char text options) rest)))
            () lines)))
+
+  (define (add-line-button)
+    `(div (@ (class "columns"))
+         (div (@ (class "column"))
+              (div (@ (class "field has-text-centered"))
+                   (a (@ (class "button")
+                         (id "add-line-button"))
+                      ,(fas-icon "comment")
+                      (span (@ (style "margin-left: 0.5ex"))"セリフを追加"))))))
 
   `(section (@ (class "section")
                (id "form"))
@@ -233,13 +299,7 @@
                             ""
                             ,@(line-fields lines))
 
-                       (div (@ (class "columns"))
-                            (div (@ (class "column"))
-                                 (div (@ (class "field has-text-centered"))
-                                      (a (@ (class "button")
-                                            (id "add-line-button"))
-                                         ,(fas-icon "comment")
-                                         (span (@ (style "margin-left: 0.5ex"))"セリフを追加")))))
+                       ,(add-line-button)
 
                        (div (@ (class "columns"))
                             (div (@ (class "column"))
@@ -255,7 +315,7 @@
                  ,@(render-line-form "" "" ()))
             (div (@ (style "display: none")
                     (id "hidden-option-field"))
-                 ,@(render-option-form ""))))
+                 ,@(render-option-form ()))))
 
 (define (add-conversation-button data-id prev-label ord)
   (let ((ord-hex (number->string ord 16)))
@@ -764,7 +824,23 @@
               (^[option]
                 (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
                                       " VALUES (?, ?, ?)")
-                                    line-id option-order option)
+                                    line-id option-order (cdr (assoc "text" option)))
+                (let ((option-id (sqlite3-last-id *sqlite-conn*)))
+                  (for-each
+                   (^[flag]
+                     (execute-query-tree '("INSERT INTO option_flags_required (option_id, flag)"
+                                           " VALUES (?, ?)")
+                                         option-id flag)
+                     )
+                   (cdr (assoc "flags-required" option)))
+                  (for-each
+                   (^[dest]
+                     (execute-query-tree '("INSERT INTO option_jumps (option_id, destination)"
+                                           " VALUES (?, ?)")
+                                         option-id dest)
+                     )
+                   (cdr (assoc "jump-to" option)))
+                  )
                 (set! option-order (+ option-order 1024)))
               options))
            (set! line-order (+ line-order 1024))

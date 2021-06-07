@@ -7,10 +7,17 @@ function submit(arg) {
     const lines = line_divs.map(el => {
         let charinput = el.querySelector('input.character-input')
         let lineinput = el.querySelector('input.line-input')
-		const option_elems = el.querySelectorAll('.option-input')
-		const options = Array.from(option_elems).map(el => {
-			return el.value
-		}).filter(val => val)
+        const option_elems = el.querySelectorAll('.option-input-group')
+        const options = Array.from(option_elems).map(el => {
+            const text = el.querySelector(".option-input").value.trim()
+            if (!text)
+                return false;
+            const flags_req = el.querySelector(".option-flags-req-input")
+                  .value.split(/ +/).filter(val => val)
+            const jump = [el.querySelector(".option-jump-input").value.trim()]
+                  .filter(val => val)
+            return {text: text, "flags-required": flags_req, "jump-to": jump}
+        }).filter(val => val)
 
         if (lineinput.value.length > 0)
             return {character: charinput.value, text: lineinput.value, options}
