@@ -12,6 +12,7 @@ function submit(arg) {
             const text = el.querySelector(".option-input").value.trim()
             if (!text)
                 return false;
+            console.log(text);
             const flags_req = el.querySelector(".option-flags-req-input")
                   .value.split(/ +/).filter(val => val)
             const jump = [el.querySelector(".option-jump-input").value.trim()]
@@ -25,10 +26,20 @@ function submit(arg) {
             return null
     }).filter(elem => elem)
 
+    const flags_req = document.querySelector('#flags-req-input')
+          .value.split(/ +/).filter(val => val)
+    const flags_exc = document.querySelector('#flags-exc-input')
+          .value.split(/ +/).filter(val => val)
+    const flags_set = document.querySelector('#flags-set-input')
+          .value.split(/ +/).filter(val => val)
+
     const data = {
         type:  document.querySelector('#type-input').value,
         label: document.querySelector('#label-input').value,
         location: document.querySelector('#location-input').value,
+        "flags-required": flags_req,
+        "flags-exclusive": flags_exc,
+        "flags-set": flags_set,
         lines
     }
 

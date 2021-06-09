@@ -250,19 +250,25 @@
            (div (@ (class "column is-one-third"))
                 (p (span (@ (class "tag is-primary"))
                          "要求フラグ"))
-                (input (@ (class "input flags-req-input") (type "text")
+                (input (@ (class "input")
+                          (id "flags-req-input")
+                          (type "text")
                           (placeholder "フラグ1 フラグ2 ...")
                           (value ,(flags "flags-required")))))
            (div (@ (class "column is-one-third"))
                 (p (span (@ (class "tag is-danger"))
                          "排他的フラグ"))
-                (input (@ (class "input flags-exc-input") (type "text")
+                (input (@ (class "input")
+                          (id "flags-exc-input")
+                          (type "text")
                           (placeholder "フラグ1 フラグ2 ...")
                           (value ,(flags "flags-exclusive")))))
            (div (@ (class "column is-one-third"))
                 (p (span (@ (class "tag is-info"))
                          "セットするフラグ"))
-                (input (@ (class "input flags-exc-input") (type "text")
+                (input (@ (class "input")
+                          (id "flags-set-input")
+                          (type "text")
                           (placeholder "フラグ1 フラグ2 ...")
                           (value ,(flags "flags-set"))))))))
 
@@ -577,12 +583,32 @@
                 (ord (vector-ref row 1)))
             (print #"Found dialog ~|dialog-id| to delete.")
 
+            (execute-query-tree '("DELETE FROM option_flags_required "
+                                  " WHERE option_id in "
+                                  " (SELECT option_id FROM options WHERE line_id ="
+                                  "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                                dialog-id)
+
+            (execute-query-tree '("DELETE FROM option_jumps "
+                                  " WHERE option_id in "
+                                  " (SELECT option_id FROM options WHERE line_id ="
+                                  "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                                dialog-id)
+
             (execute-query-tree '("DELETE FROM options "
-                                  " WHERE line_id ="
+                                  " WHERE line_id in "
                                   " (SELECT line_id FROM lines WHERE dialog_id = ?)")
                                 dialog-id)
 
             (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
+                                dialog-id)
+
+
+            (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
+                                dialog-id)
+            (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
+                                dialog-id)
+            (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
                                 dialog-id)
 
             (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
@@ -799,52 +825,82 @@
            '(a (@ (href "/")) "Back Home"))))))
 
 (define (convert-dialog-to-relations await id dialog dialog-order)
+  (define (add-line line dialog-id line-order)
+    (let ((character (cdr (assoc "character" line)))
+          (text (cdr (assoc "text" line)))
+          (options (let1 opt (assoc "options" line)
+                         (if opt (cdr opt) ()))))
+      (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
+                            " VALUES (?, ?, ?, ?)")
+                          dialog-id line-order character text)
+      (let ((line-id (sqlite3-last-id *sqlite-conn*))
+            (option-order 0))
+        (add-line-details line-id option-order line options))
+      (set! line-order (+ line-order 1024))
+      ))
+
+  (define (add-line-details line-id option-order line options)
+    (for-each
+     (^[option]
+       (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
+                             " VALUES (?, ?, ?)")
+                           line-id option-order (cdr (assoc "text" option)))
+       (let ((option-id (sqlite3-last-id *sqlite-conn*)))
+         (add-option-details option-id option))
+       (set! option-order (+ option-order 1024)))
+     options))
+
+  (define (add-option-details option-id option)
+    (for-each
+     (^[flag]
+       (execute-query-tree '("INSERT INTO option_flags_required (option_id, flag)"
+                             " VALUES (?, ?)")
+                           option-id flag))
+     (cdr (assoc "flags-required" option)))
+    (for-each
+     (^[dest]
+       (execute-query-tree '("INSERT INTO option_jumps (option_id, destination)"
+                             " VALUES (?, ?)")
+                           option-id dest))
+     (cdr (assoc "jump-to" option))))
+
+  (define (add-dialog-flags dialog-id flags-req flags-exc flags-set)
+    (for-each
+     (^[flag]
+      (execute-query-tree '("INSERT INTO flags_required (dialog_id, flag)"
+                            " VALUES (?, ?)")
+                          dialog-id flag))
+     flags-req)
+    (for-each
+     (^[flag]
+      (execute-query-tree '("INSERT INTO flags_exclusive (dialog_id, flag)"
+                            " VALUES (?, ?)")
+                          dialog-id flag))
+     flags-exc)
+    (for-each
+     (^[flag]
+      (execute-query-tree '("INSERT INTO flags_set (dialog_id, flag)"
+                            " VALUES (?, ?)")
+                          dialog-id flag))
+     flags-set))
+
   (let ((label (cdr (assoc "label" dialog)))
         (location (cdr (assoc "location" dialog)))
         (type (cdr (assoc "type" dialog)))
-        (lines (cdr (assoc "lines" dialog))))
+        (lines (cdr (assoc "lines" dialog)))
+        (flags-req (cdr (assoc "flags-required" dialog)))
+        (flags-exc (cdr (assoc "flags-exclusive" dialog)))
+        (flags-set (cdr (assoc "flags-set" dialog))))
     (execute-query-tree '("INSERT INTO dialogs"
                           " (scenario_id, ord, label, location, type)"
                           " VALUES (?, ?, ?, ?, ?)")
                         id dialog-order label location type)
     (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
           (line-order 0))
+      (add-dialog-flags dialog-id flags-req flags-exc flags-set)
       (for-each
        (^[line]
-         (let ((character (cdr (assoc "character" line)))
-               (text (cdr (assoc "text" line)))
-               (options (let1 opt (assoc "options" line)
-                          (if opt (cdr opt) ()))))
-           (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
-                                 " VALUES (?, ?, ?, ?)")
-                               dialog-id line-order character text)
-           (let ((line-id (sqlite3-last-id *sqlite-conn*))
-                 (option-order 0))
-             (for-each
-              (^[option]
-                (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
-                                      " VALUES (?, ?, ?)")
-                                    line-id option-order (cdr (assoc "text" option)))
-                (let ((option-id (sqlite3-last-id *sqlite-conn*)))
-                  (for-each
-                   (^[flag]
-                     (execute-query-tree '("INSERT INTO option_flags_required (option_id, flag)"
-                                           " VALUES (?, ?)")
-                                         option-id flag)
-                     )
-                   (cdr (assoc "flags-required" option)))
-                  (for-each
-                   (^[dest]
-                     (execute-query-tree '("INSERT INTO option_jumps (option_id, destination)"
-                                           " VALUES (?, ?)")
-                                         option-id dest)
-                     )
-                   (cdr (assoc "jump-to" option)))
-                  )
-                (set! option-order (+ option-order 1024)))
-              options))
-           (set! line-order (+ line-order 1024))
-           ))
+         (add-line line dialog-id line-order))
        lines))
     ))
 
