@@ -563,64 +563,9 @@
              'done
              ))))
 
-(define (update-existing-conversation await data-id form-data)
-  (define (get name)
-    (let ((val (assoc name form-data)))
-      (if val
-          (cdr val)
-          (error #"paramter not specified: ~|name|"))))
+(define (delete-existing-dialogs await data-id label)
+  (define last-order 0)
 
-  (let ((orig-label (get "original-label")))
-    (with-query-result/tree
-     await
-     '("SELECT dialog_id, ord FROM dialogs"
-       " WHERE label = ? AND scenario_id = ?")
-     `(,orig-label ,data-id)
-     (^[rset]
-       (for-each
-        (^[row]
-          (let ((dialog-id (vector-ref row 0))
-                (ord (vector-ref row 1)))
-            (print #"Found dialog ~|dialog-id| to delete.")
-
-            (execute-query-tree '("DELETE FROM option_flags_required "
-                                  " WHERE option_id in "
-                                  " (SELECT option_id FROM options WHERE line_id ="
-                                  "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                                dialog-id)
-
-            (execute-query-tree '("DELETE FROM option_jumps "
-                                  " WHERE option_id in "
-                                  " (SELECT option_id FROM options WHERE line_id ="
-                                  "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                                dialog-id)
-
-            (execute-query-tree '("DELETE FROM options "
-                                  " WHERE line_id in "
-                                  " (SELECT line_id FROM lines WHERE dialog_id = ?)")
-                                dialog-id)
-
-            (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
-                                dialog-id)
-
-
-            (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
-                                dialog-id)
-            (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
-                                dialog-id)
-            (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
-                                dialog-id)
-
-            (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
-                                dialog-id)
-
-            (convert-dialog-to-relations await data-id form-data ord)
-
-            ))
-        rset)))
-    'done))
-
-(define (delete-conversation await data-id label)
   (with-query-result/tree
    await
    '("SELECT dialog_id, ord FROM dialogs"
@@ -629,26 +574,67 @@
    (^[rset]
      (for-each
       (^[row]
-        (let ((dialog-id (vector-ref row 0))
-              (ord (vector-ref row 1)))
-          (print #"Found dialog ~|dialog-id| to delete.")
+        (await
+         (^[]
+           (let ((dialog-id (vector-ref row 0))
+                 (ord (vector-ref row 1)))
+             (print #"Found dialog ~|dialog-id| to delete.")
 
-          (execute-query-tree '("DELETE FROM options "
-                                " WHERE line_id ="
-                                " (SELECT line_id FROM lines WHERE dialog_id = ?)")
-                              dialog-id)
+             (execute-query-tree '("DELETE FROM option_flags_required "
+                                   " WHERE option_id in "
+                                   " (SELECT option_id FROM options WHERE line_id in"
+                                   "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                                 dialog-id)
 
-          (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
-                              dialog-id)
+             (execute-query-tree '("DELETE FROM option_jumps "
+                                   " WHERE option_id in "
+                                   " (SELECT option_id FROM options WHERE line_id in"
+                                   "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                                 dialog-id)
 
-          (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
-                              dialog-id)
+             (execute-query-tree '("DELETE FROM options "
+                                   " WHERE line_id in "
+                                   " (SELECT line_id FROM lines WHERE dialog_id = ?)")
+                                 dialog-id)
+
+             (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
+                                 dialog-id)
 
 
-          ))
-      rset)))
+             (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
+                                 dialog-id)
+             (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
+                                 dialog-id)
+             (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
+                                 dialog-id)
 
-  'done)
+             (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
+                                 dialog-id)
+
+             (set! last-order ord)
+
+             ))))
+      rset)
+     ))
+  last-order)
+
+(define (update-existing-conversation await data-id form-data)
+  (define (get name)
+    (let ((val (assoc name form-data)))
+      (if val
+          (cdr val)
+          (error #"paramter not specified: ~|name|"))))
+
+  (let ((orig-label (get "original-label")))
+    (execute-query-tree '("BEGIN TRANSACTION"))
+    (guard (e [else (report-error e)
+                    (execute-query-tree '("ROLLBACK"))
+                    (print #"Transaction failed!")])
+           (let ((ord (delete-existing-dialogs await data-id orig-label)))
+             (convert-dialog-to-relations await data-id form-data ord))
+           (execute-query-tree '("COMMIT"))
+           (print #"Transaction done!"))
+    'done))
 
 (define (insert-conversation await data-id form-data)
   (define (get name)
@@ -761,7 +747,7 @@
       (^[await]
         (let-params req ([id "p:1"]
                          [label "q"])
-                    (let ((result (delete-conversation await id label)))
+                    (let ((result (delete-existing-dialogs await id label)))
                       (respond/redirect req #"/scenarios/~|id|"))))))))
 
 (define (render-location await id loc)
