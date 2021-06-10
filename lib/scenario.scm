@@ -99,7 +99,7 @@
                (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
             ,(fas-icon "edit")))))
 
-(define (render-conversation conv data-id . additioanl-elements)
+(define (render-dialog conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
 
@@ -124,8 +124,8 @@
                                 "0x" ,(number->string ord 16))))
                    ,@(render-lines lines)))))
 
-(define (render-conversation/edit-button conv data-id)
-  (render-conversation conv data-id
+(define (render-dialog/edit-button conv data-id)
+  (render-dialog conv data-id
                        (edit-buttons data-id (cdr (assoc "label" conv)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
@@ -203,7 +203,7 @@
                            ,(fas-icon "angle-right")
                            (span (@ (style "margin-left: 0.5ex")) "選択肢を追加"))))))))
 
-(define (render-conversation-form conv data-id hidden-inputs)
+(define (render-dialog-form conv data-id hidden-inputs)
   (define (get name default)
     (if conv
         (cdr (assoc name conv))
@@ -325,7 +325,7 @@
                     (id "hidden-option-field"))
                  ,@(render-option-form ()))))
 
-(define (add-conversation-button data-id prev-label ord)
+(define (add-dialog-button data-id prev-label ord)
   (let ((ord-hex (number->string ord 16)))
     `(div (@ (class "columns"))
           (div (@ (class "column has-text-centered"))
@@ -462,8 +462,8 @@
                    (ord (if prev-conv
                             (/ (+ (ord-of prev-conv) (ord-of conv)) 2)
                             (- (ord-of conv) 1024))))
-               (values (cons (render-conversation/edit-button conv id)
-                             (cons (add-conversation-button id prev-label ord)
+               (values (cons (render-dialog/edit-button conv id)
+                             (cons (add-dialog-button id prev-label ord)
                                    rest))
                        conv)))
            () #f
@@ -472,7 +472,7 @@
     (let-values (((convs prev-conv)
                   (elems content)))
       (append (reverse convs)
-              (list (add-conversation-button id (label-of prev-conv)
+              (list (add-dialog-button id (label-of prev-conv)
                                              (+ 1024 (ord-of prev-conv))))))))
 
 (define (json-file-path data-id)
@@ -480,7 +480,7 @@
 
 (define (read-and-render-scenario-file/insert await id ord)
   (define (new-form ord)
-    (render-conversation-form #f id
+    (render-dialog-form #f id
                               `(input (@ (id "ord-input")
                                          (type "hidden")
                                          (value ,ord)))))
@@ -489,17 +489,17 @@
            (fold2 (^[conv rest inserted?]
                    (let ((next-ord (cdr (assoc "ord" conv))))
                      (if (and (not inserted?) (> next-ord ord))
-                         (values (cons (render-conversation conv id)
+                         (values (cons (render-dialog conv id)
                                        (cons (new-form ord) rest))
                                  #t)
-                         (values (cons (render-conversation conv id) rest)
+                         (values (cons (render-dialog conv id) rest)
                                  inserted?))))
                   () #f
                   content))))
 
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
-    (render-conversation-form conv id
+    (render-dialog-form conv id
                               `(input (@ (id "original-label-input")
                                          (type "hidden")
                                          (value ,label)))))
@@ -510,7 +510,7 @@
                    (let ((label (cdr (assoc "label" conv))))
                      (cons (if (string=? label label-to-edit)
                                (new-form conv label)
-                               (render-conversation conv id))
+                               (render-dialog conv id))
                            rest)))
                  ()
                  content))))
@@ -622,7 +622,7 @@
      ))
   last-order)
 
-(define (update-existing-conversation await data-id form-data)
+(define (update-existing-dialog await data-id form-data)
   (define (get name)
     (let ((val (assoc name form-data)))
       (if val
@@ -640,7 +640,7 @@
            (print #"Transaction done!"))
     'done))
 
-(define (insert-conversation await data-id form-data)
+(define (insert-dialog await data-id form-data)
   (define (get name)
     (let ((val (assoc name form-data)))
       (if val
@@ -653,9 +653,9 @@
 (define (update-with-json await data-id json)
   (define form-data (parse-json-string json))
   (cond ((assoc "ord" form-data)
-         (insert-conversation await data-id form-data))
+         (insert-dialog await data-id form-data))
         ((assoc "original-label" form-data)
-         (update-existing-conversation await data-id form-data))))
+         (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
   (let ((dialog-writer (make-csv-writer ","))
