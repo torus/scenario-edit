@@ -1,4 +1,5 @@
 (define-module scenario
+  (use srfi-35)
   (use gauche.threads)
   (use gauche.collection)
 
@@ -9,6 +10,7 @@
   (use text.csv)
   (use text.tree)
 
+  (add-load-path "../gauche-violet/lib" :relative)
   (use violet)
   (use makiki)
 
@@ -563,6 +565,37 @@
              'done
              ))))
 
+(define (delete-dialog dialog-id)
+  (execute-query-tree '("DELETE FROM option_flags_required "
+                        " WHERE option_id in "
+                        " (SELECT option_id FROM options WHERE line_id in"
+                        "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                      dialog-id)
+
+  (execute-query-tree '("DELETE FROM option_jumps "
+                        " WHERE option_id in "
+                        " (SELECT option_id FROM options WHERE line_id in"
+                        "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
+                      dialog-id)
+
+  (execute-query-tree '("DELETE FROM options "
+                        " WHERE line_id in "
+                        " (SELECT line_id FROM lines WHERE dialog_id = ?)")
+                      dialog-id)
+
+  (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
+                      dialog-id)
+
+  (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
+                      dialog-id)
+  (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
+                      dialog-id)
+  (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
+                      dialog-id)
+
+  (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
+                      dialog-id))
+
 (define (delete-existing-dialogs await data-id label)
   (define last-order 0)
 
@@ -580,36 +613,7 @@
                  (ord (vector-ref row 1)))
              (print #"Found dialog ~|dialog-id| to delete.")
 
-             (execute-query-tree '("DELETE FROM option_flags_required "
-                                   " WHERE option_id in "
-                                   " (SELECT option_id FROM options WHERE line_id in"
-                                   "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                                 dialog-id)
-
-             (execute-query-tree '("DELETE FROM option_jumps "
-                                   " WHERE option_id in "
-                                   " (SELECT option_id FROM options WHERE line_id in"
-                                   "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                                 dialog-id)
-
-             (execute-query-tree '("DELETE FROM options "
-                                   " WHERE line_id in "
-                                   " (SELECT line_id FROM lines WHERE dialog_id = ?)")
-                                 dialog-id)
-
-             (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
-                                 dialog-id)
-
-
-             (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
-                                 dialog-id)
-             (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
-                                 dialog-id)
-             (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
-                                 dialog-id)
-
-             (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
-                                 dialog-id)
+             (delete-dialog dialog-id)
 
              (set! last-order ord)
 
@@ -842,13 +846,13 @@
        (execute-query-tree '("INSERT INTO option_flags_required (option_id, flag)"
                              " VALUES (?, ?)")
                            option-id flag))
-     (cdr (assoc "flags-required" option)))
+     (cdr (or (assoc "flags-required" option) (cons 'x #()))))
     (for-each
      (^[dest]
        (execute-query-tree '("INSERT INTO option_jumps (option_id, destination)"
                              " VALUES (?, ?)")
                            option-id dest))
-     (cdr (assoc "jump-to" option))))
+     (cdr (or (assoc "jump-to" option) (cons 'x #())))))
 
   (define (add-dialog-flags dialog-id flags-req flags-exc flags-set)
     (for-each
@@ -874,9 +878,9 @@
         (location (cdr (assoc "location" dialog)))
         (type (cdr (assoc "type" dialog)))
         (lines (cdr (assoc "lines" dialog)))
-        (flags-req (cdr (assoc "flags-required" dialog)))
-        (flags-exc (cdr (assoc "flags-exclusive" dialog)))
-        (flags-set (cdr (assoc "flags-set" dialog))))
+        (flags-req (cdr (or (assoc "flags-required" dialog) (cons 'x #()))))
+        (flags-exc (cdr (or (assoc "flags-exclusive" dialog) (cons 'x #()))))
+        (flags-set (cdr (or (assoc "flags-set" dialog) (cons 'x #())))))
     (execute-query-tree '("INSERT INTO dialogs"
                           " (scenario_id, ord, label, location, type)"
                           " VALUES (?, ?, ?, ?, ?)")
@@ -891,22 +895,53 @@
     ))
 
 (define (convert-scenario-file-to-relations await id)
-  (let ((json (read-scenario-file await id))
-        (dialog-order 0))
-    (for-each
-     (^[dialog]
-       (convert-dialog-to-relations await id dialog dialog-order)
-       (set! dialog-order (+ dialog-order 1024)))
-     json)
-    "OK"
-    ))
+  (execute-query-tree '("BEGIN TRANSACTION"))
+  (guard (e [else (report-error e)
+                  (execute-query-tree '("ROLLBACK"))
+                  (print #"Transaction failed!")
+                  "FAIL!"])
+
+         (with-query-result/tree
+          await
+          '("SELECT dialog_id FROM dialogs"
+            " WHERE scenario_id = ?")
+          `(,id)
+          (^[rset]
+            (for-each
+             (^[row]
+               (await
+                (^[]
+                  (let ((dialog-id (vector-ref row 0)))
+                    (print #"Found dialog ~|dialog-id| to delete.")
+                    (delete-dialog dialog-id)
+                    ))))
+             rset)))
+
+         (let ((json (read-scenario-file await id))
+               (dialog-order 0))
+           (for-each
+            (^[dialog]
+              (convert-dialog-to-relations await id dialog dialog-order)
+              (set! dialog-order (+ dialog-order 1024)))
+            json)
+           )
+
+         (execute-query-tree '("COMMIT"))
+         (print #"Transaction done!")
+         "DONE AND DONE!"))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/convert$/
   (^[req app]
      (violet-async
       (^[await]
+        (define (await/error proc)
+          (let ((result (await proc)))
+            (if (is-a? result <error>)
+                (raise result)
+                result)
+            ))
         (let-params req ([id "p:1"])
-                    (let ((result (convert-scenario-file-to-relations await id)))
+                    (let ((result (convert-scenario-file-to-relations await/error id)))
                       (ok req result " " '(a (@ (href "/")) "Back Home"))))))))
 
 (define (create-tables)
