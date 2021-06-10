@@ -106,7 +106,10 @@
   (let ((label (get "label"))
         (lines (get "lines"))
         (loc (get "location"))
-        (ord (get "ord")))
+        (ord (get "ord"))
+        (flags-req (get "flags-required"))
+        (flags-exc (get "flags-exclusive"))
+        (flags-set (get "flags-set")))
     `(section (@ (class "section") (id ,#"label-~label"))
               (div (@ (class "container"))
                    (div (@ (class "columns is-vcentered"))
@@ -122,6 +125,25 @@
                         (div (@ (class "column"))
                              (p (@ (class "has-text-grey"))
                                 "0x" ,(number->string ord 16))))
+                   (div (@ (class "columns"))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                    flags-req)))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-danger")) ,f))
+                                   flags-exc)))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-info")) ,f))
+                                   flags-set)))
+
+
+                        )
                    ,@(render-lines lines)))))
 
 (define (render-dialog/edit-button conv data-id)
