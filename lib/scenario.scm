@@ -934,14 +934,14 @@
   (^[req app]
      (violet-async
       (^[await]
-        (define (await/error proc)
-          (let ((result (await proc)))
-            (if (is-a? result <error>)
-                (raise result)
-                result)
-            ))
+        ;; (define (await/error proc)
+        ;;   (let ((result (await proc)))
+        ;;     (if (is-a? result <error>)
+        ;;         (raise result)
+        ;;         result)
+        ;;     ))
         (let-params req ([id "p:1"])
-                    (let ((result (convert-scenario-file-to-relations await/error id)))
+                    (let ((result (convert-scenario-file-to-relations await id)))
                       (ok req result " " '(a (@ (href "/")) "Back Home"))))))))
 
 (define (create-tables)
