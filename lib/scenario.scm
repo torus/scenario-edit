@@ -45,10 +45,19 @@
      (script (@ (src "/static/script.js")) "")))
   )
 
-(define (ok req . elements)
-  (respond/ok req (cons "<!DOCTYPE html>"
-                        (sxml:sxml->html
-                         (apply create-page elements)))))
+(define (create-error-page e)
+  (cons "<!DOCTYPE html>"
+        (sxml:sxml->html
+         (create-page `(pre ,(report-error e #f))))))
+
+(define-syntax ok
+  (syntax-rules ()
+    [(_ req elements ...)
+     (guard (e [else (report-error e)
+                     (respond/ng req 500 :body (create-error-page e))])
+            (respond/ok req (cons "<!DOCTYPE html>"
+                                  (sxml:sxml->html
+                                   (create-page elements ...)))))]))
 
 (define-http-handler "/"
   (^[req app]
