@@ -688,30 +688,38 @@
          (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((dialog-writer (make-csv-writer ","))
+  (let ((line-writer (make-csv-writer ","))
         (option-writer (make-csv-writer ","))
-        (meta-writer (make-csv-writer ","))
+        (dialog-writer (make-csv-writer ","))
+        (flag-writer (make-csv-writer ","))
         (json (read-scenario-from-db await data-id)))
-    #?=(overwrite-json-file await json (json-file-path data-id))
-    (call-with-output-file "csv/Dialog_meta.csv"
-      (^[meta-port]
-        (call-with-output-file "csv/Dialog.csv"
-          (^[dialog-port]
-            (call-with-output-file "csv/Dialog_options.csv"
+    (overwrite-json-file await json (json-file-path data-id))
+    (call-with-output-file "csv/Dialogs.csv"
+      (^[dialog-port]
+        (call-with-output-file "csv/Dialogs_lines.csv"
+          (^[line-port]
+            (call-with-output-file "csv/Dialogs_options.csv"
               (^[option-port]
-                (dialog-writer dialog-port '("" "character" "text" "options"))
-                (option-writer option-port '("" "option"))
-                (meta-writer meta-port '("" "type" "location" "count"))
-                (json-match
-                 json
-                 (write-with-csv-writers dialog-port dialog-writer
-                                         option-port option-writer
-                                         meta-port meta-writer)
-                 )))))))))
+                (call-with-output-file "csv/Dialogs_flags.csv"
+                  (^[flag-port]
+                    (line-writer   line-port   '("" "character" "text" "options"))
+                    (option-writer option-port '("" "option"))
+                    (dialog-writer dialog-port '("" "type" "location" "count"))
+                    (flag-writer   flag-port   '("" "type" "flag"))
+                    (json-match
+                     json
+                     (write-with-csv-writers line-port line-writer
+                                             option-port option-writer
+                                             dialog-port dialog-writer
+                                             flag-port flag-writer)
+                     )))
+                ))))))
+    "Conversion done!"))
 
-(define (write-with-csv-writers dialog-port dialog-writer
+(define (write-with-csv-writers line-port line-writer
                                 option-port option-writer
-                                meta-port meta-writer)
+                                dialog-port dialog-writer
+                                flag-port flag-writer)
   (^[% @]
     (@ (^d
         (let ((label #f) (location #f) (type #f) (linecount 0))
@@ -739,7 +747,7 @@
                                    ))
                                 d))))
                          j))
-                      (dialog-writer dialog-port
+                      (line-writer line-port
                                      `(,#"~|label|_~num" ,char ,text
                                        ,(x->string optcount)))
                       (inc! num)
@@ -747,7 +755,7 @@
                       j))
                   d))))
            d)
-          (meta-writer meta-port
+          (dialog-writer dialog-port
                        `(,label ,type ,location
                                 ,(x->string linecount))))))))
 
@@ -756,9 +764,9 @@
     (violet-async
      (^[await]
        (let-params req ([data-id "p:1"])
-                   (convert-json-to-csv await data-id)
                    (ok req
-                       `(p (span "DONE! ")
+                       `(p (span ,(convert-json-to-csv await data-id))
+                           " "
                            (span (a (@ (href ,#"/scenarios/~|data-id|"))
                                     "Back to Scenario"))))
                    )))))
