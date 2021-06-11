@@ -848,7 +848,7 @@
       (let ((line-id (sqlite3-last-id *sqlite-conn*))
             (option-order 0))
         (add-line-details line-id option-order line options))
-      (set! line-order (+ line-order 1024))
+      (+ line-order 1024)
       ))
 
   (define (add-line-details line-id option-order line options)
@@ -912,7 +912,7 @@
       (add-dialog-flags dialog-id flags-req flags-exc flags-set)
       (for-each
        (^[line]
-         (add-line line dialog-id line-order))
+         (set! line-order (add-line line dialog-id line-order)))
        lines))
     ))
 
