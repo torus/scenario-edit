@@ -10,7 +10,6 @@
   (use text.csv)
   (use text.tree)
 
-  (add-load-path "../gauche-violet/lib" :relative)
   (use violet)
   (use makiki)
 

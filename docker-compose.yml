@@ -4,6 +4,7 @@ services:
     build: .
     volumes:
       - .:/code
+      - ./gauche-violet/lib:/usr/local/lib/violet
       - ../UkiyoDemo/Dev/Dialogues/json:/code/json
       - ../UkiyoDemo/Dev/Dialogues:/code/csv
     ports:
