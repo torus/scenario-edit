@@ -703,7 +703,6 @@
                 (call-with-output-file "csv/Dialogs_flags.csv"
                   (^[flag-port]
                     (line-writer   line-port   '("" "character" "text" "options"))
-                    (dialog-writer dialog-port '("" "type" "location" "count"))
                     (flag-writer   flag-port   '("" "type" "flag"))
                     (json-match
                      json
@@ -718,38 +717,65 @@
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
 
+(define (safe-assoc name alist)
+  (or (assoc name alist) (cons #f "")))
+
 (define (write-with-csv-writers line-port line-writer
                                 option-port option-writer
                                 dialog-port dialog-writer
                                 flag-port flag-writer)
 
+  (define w-option (cut option-writer option-port <>))
+  (define w-flag   (cut flag-writer   flag-port   <>))
+  (define w-dialog (cut dialog-writer dialog-port <>))
+
   (define (write-option % @ label num optnum option)
     (let ((flags-req (cdr (safe-assoc-vec "flags-required"  option)))
-          (flags-exc (cdr (safe-assoc-vec "flags-exclusive" option)))
-          (flags-set (cdr (safe-assoc-vec "flags-set"       option)))
           (jump-to   (cdr (safe-assoc-vec "jump-to"         option))))
-      (option-writer option-port
-                     `(,#"~|label|_~|num|_~|optnum|"
-                       ,(cdr (assoc "text" option))
-                       ,(x->string (+ (vector-length flags-req)
-                                      (vector-length flags-exc)
-                                      (vector-length flags-set)))
-                       ,(if (> (vector-length jump-to) 0)
-                            (ref jump-to 0)
-                            "")
-                       ))))
+      (let ((opt-label #"~|label|_~|num|_~|optnum|")
+            (flags-req-len (vector-length flags-req)))
+      (w-option
+       `(,opt-label
+         ,(cdr (assoc "text" option))
+         ,(x->string flags-req-len)
+         ,(if (> (vector-length jump-to) 0)
+              (ref jump-to 0)
+              "")))
+      (vector-for-each-with-index
+       (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
+       flags-req))))
 
-  (option-writer option-port '("" "option" "flagcount" "jump"))
+  (w-dialog '("" "type" "location" "count" "flagcount"))
+  (w-option '("" "option" "flagcount" "jump"))
 
   (^[% @]
     (@ (^d
-        (let ((label #f) (location #f) (type #f) (linecount 0))
-          ((% "label" (cut set! label <>)) d)
-          ((% "location" (cut set! location <>)) d)
-          ((% "type" (cut set! type <>)) d)
+        (let ((label    (cdr (safe-assoc "label" d)))
+              (location (cdr (safe-assoc "location" d)))
+              (type     (cdr (safe-assoc "type" d)))
+              (linecount (vector-length (cdr (safe-assoc-vec "lines" d))))
+              (flagcount 0))
+          ((% "flags-required"
+              (@
+                (^d
+                 (w-flag `(,#"~|label|_~|flagcount|" "required" ,d))
+                 (inc! flagcount)))) d)
+          ((% "flags-exclusive"
+              (@
+                (^d
+                 (w-flag `(,#"~|label|_~|flagcount|" "exclusive" ,d))
+                 (inc! flagcount)))) d)
+          ((% "flags-set"
+              (@
+                (^d
+                 (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
+                 (inc! flagcount)))) d)
+
+          (w-dialog `(,label ,type ,location
+                             ,(x->string linecount) ,(x->string flagcount)))
+
           ((% "lines"
               (^d
-               (set! linecount (vector-length d))
                (let ((char #f) (text #f) (num 0) (optcount 0))
                  ((@ (^j
                       ((% "character" (cut set! char <>)) j)
@@ -765,16 +791,14 @@
                                 d))))
                          j))
                       (line-writer line-port
-                                     `(,#"~|label|_~num" ,char ,text
-                                       ,(x->string optcount)))
+                                   `(,#"~|label|_~num" ,char ,text
+                                     ,(x->string optcount)))
                       (inc! num)
                       #t
                       j))
                   d))))
            d)
-          (dialog-writer dialog-port
-                       `(,label ,type ,location
-                                ,(x->string linecount))))))))
+          )))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
   (^[req app]
