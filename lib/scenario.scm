@@ -703,7 +703,6 @@
                 (call-with-output-file "csv/Dialogs_flags.csv"
                   (^[flag-port]
                     (line-writer   line-port   '("" "character" "text" "options"))
-                    (option-writer option-port '("" "option"))
                     (dialog-writer dialog-port '("" "type" "location" "count"))
                     (flag-writer   flag-port   '("" "type" "flag"))
                     (json-match
@@ -716,10 +715,32 @@
                 ))))))
     "Conversion done!"))
 
+(define (safe-assoc-vec name alist)
+  (or (assoc name alist) (cons #f #())))
+
 (define (write-with-csv-writers line-port line-writer
                                 option-port option-writer
                                 dialog-port dialog-writer
                                 flag-port flag-writer)
+
+  (define (write-option % @ label num optnum option)
+    (let ((flags-req (cdr (safe-assoc-vec "flags-required"  option)))
+          (flags-exc (cdr (safe-assoc-vec "flags-exclusive" option)))
+          (flags-set (cdr (safe-assoc-vec "flags-set"       option)))
+          (jump-to   (cdr (safe-assoc-vec "jump-to"         option))))
+      (option-writer option-port
+                     `(,#"~|label|_~|num|_~|optnum|"
+                       ,(cdr (assoc "text" option))
+                       ,(x->string (+ (vector-length flags-req)
+                                      (vector-length flags-exc)
+                                      (vector-length flags-set)))
+                       ,(if (> (vector-length jump-to) 0)
+                            (ref jump-to 0)
+                            "")
+                       ))))
+
+  (option-writer option-port '("" "option" "flagcount" "jump"))
+
   (^[% @]
     (@ (^d
         (let ((label #f) (location #f) (type #f) (linecount 0))
@@ -739,12 +760,8 @@
                              (set! optcount (vector-length d))
                              (let ((optnum 0))
                                ((@
-                                 (^[option]
-                                   (option-writer option-port
-                                                  `(,#"~|label|_~|num|_~|optnum|"
-                                                    ,(cdr (assoc "text" option))))
-                                   (inc! optnum)
-                                   ))
+                                 (cut write-option % @ label num optnum <>)
+                                 (^x (inc! optnum)))
                                 d))))
                          j))
                       (line-writer line-port
