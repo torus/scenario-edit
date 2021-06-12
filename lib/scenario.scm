@@ -249,6 +249,13 @@
   (define lines (get "lines" #()))
   (define type (get "type" "conversation"))
 
+  (define (type-selector)
+    `(select (@ (id "type-input"))
+             (option (@ ,@(value-and-selected type "conversation")) "会話")
+             (option (@ ,@(value-and-selected type "inspection"))   "調べる")
+             (option (@ ,@(value-and-selected type "message"))      "メッセージ")
+             (option (@ ,@(value-and-selected type "auto"))         "自動")))
+
   (define (conv-form)
     (define (flags key)
       (apply string-append
@@ -262,9 +269,7 @@
                ,(form-field
                  "タイプ" #f
                  `(div (@ (class "select"))
-                       (select (@ (id "type-input"))
-                               (option (@ ,@(value-and-selected type "conversation")) "会話")
-                               (option (@ ,@(value-and-selected type "message")) "メッセージ")))))
+                       ,(type-selector))))
           (div (@ (class "column is-one-third"))
                ,(form-field "ラベル"
                             "他の会話とラベルが重複しないようにしてください。"
