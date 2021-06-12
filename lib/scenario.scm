@@ -372,7 +372,7 @@
                                          (button (@ (class "button is-primary")) "更新"))
                                       (p (@ (class "control"))
                                          (a (@ (class "button is-light")
-                                               (href ,#"/scenarios/~data-id"))
+                                               (href ,#"/scenarios/~|data-id|#label-~label"))
                                             "キャンセル")))))))
             (div (@ (style "display: none")
                     (id "hidden-field"))
