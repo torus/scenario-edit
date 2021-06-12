@@ -370,7 +370,7 @@
 (define (read-scenario-from-db await id)
   (with-query-result/tree
    await
-   '("SELECT dialog_id, label, location, type, ord"
+   '("SELECT dialog_id, label, location, type, ord, trigger"
      " FROM dialogs"
      " WHERE scenario_id = ?"
      " ORDER BY ord")
@@ -383,14 +383,16 @@
 
 (define (read-dialog-from-db await row)
   (let ((dialog-id (vector-ref row 0))
-        (label (vector-ref row 1))
-        (loc (vector-ref row 2))
-        (typ (vector-ref row 3))
-        (ord (vector-ref row 4)))
+        (label   (vector-ref row 1))
+        (loc     (vector-ref row 2))
+        (typ     (vector-ref row 3))
+        (ord     (vector-ref row 4))
+        (trigger (vector-ref row 5)))
     `(("id" . ,dialog-id)
       ("label" . ,label)
       ("type" . ,typ)
       ("location" . ,loc)
+      ("trigger" . ,trigger)
       ("ord" . ,ord)
       ("lines" .
        ,(with-query-result/tree
@@ -745,14 +747,15 @@
        (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
        flags-req))))
 
-  (w-dialog '("" "type" "location" "count" "flagcount"))
+  (w-dialog '("" "type" "location" "trigger" "count" "flagcount"))
   (w-option '("" "option" "flagcount" "jump"))
 
   (^[% @]
     (@ (^d
-        (let ((label    (cdr (safe-assoc "label" d)))
-              (location (cdr (safe-assoc "location" d)))
-              (type     (cdr (safe-assoc "type" d)))
+        (let ((label     (cdr (safe-assoc "label" d)))
+              (location  (cdr (safe-assoc "location" d)))
+              (trigger   (cdr (safe-assoc "trigger" d)))
+              (type      (cdr (safe-assoc "type" d)))
               (linecount (vector-length (cdr (safe-assoc-vec "lines" d))))
               (flagcount 0))
           ((% "flags-required"
@@ -771,7 +774,7 @@
                  (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
                  (inc! flagcount)))) d)
 
-          (w-dialog `(,label ,type ,location
+          (w-dialog `(,label ,type ,location ,trigger
                              ,(x->string linecount) ,(x->string flagcount)))
 
           ((% "lines"
@@ -955,15 +958,16 @@
 
   (let ((label (cdr (assoc "label" dialog)))
         (location (cdr (assoc "location" dialog)))
+        (trigger (cdr (assoc "trigger" dialog)))
         (type (cdr (assoc "type" dialog)))
         (lines (cdr (assoc "lines" dialog)))
         (flags-req (cdr (or (assoc "flags-required" dialog) (cons 'x #()))))
         (flags-exc (cdr (or (assoc "flags-exclusive" dialog) (cons 'x #()))))
         (flags-set (cdr (or (assoc "flags-set" dialog) (cons 'x #())))))
     (execute-query-tree '("INSERT INTO dialogs"
-                          " (scenario_id, ord, label, location, type)"
-                          " VALUES (?, ?, ?, ?, ?)")
-                        id dialog-order label location type)
+                          " (scenario_id, ord, label, location, type, trigger)"
+                          " VALUES (?, ?, ?, ?, ?, ?)")
+                        id dialog-order label location type trigger)
     (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
           (line-order 0))
       (add-dialog-flags dialog-id flags-req flags-exc flags-set)
@@ -1036,6 +1040,7 @@
                         ", label       TEXT NOT NULL"
                         ", location    TEXT NOT NULL"
                         ", type        TEXT NOT NULL"
+                        ", trigger     TEXT NOT NULL"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
                         "  line_id     INTEGER PRIMARY KEY"
