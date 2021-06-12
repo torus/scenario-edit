@@ -71,6 +71,20 @@
          (i (@ (class ,#"fas fa-~name")) "")))
 
 (define (render-line char text options)
+  (define (render-option o)
+    `(li ,(fas-icon "angle-right")
+         ,(cdr (assoc "text" o)) " "
+         ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                 (cdr (safe-assoc-vec "flags-required" o))))
+         " "
+         ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
+            (if (> (vector-length jump) 0)
+                `((span (@ (class "tag is-info"))
+                        ,(fas-icon "arrow-circle-right") " "
+                        ,(vector-ref jump 0)))
+                ()))
+         ))
+
   `(div (@ (class "columns"))
         (div (@ (class "column is-one-fifth has-text-right"))
              ,char)
@@ -79,8 +93,7 @@
              ,(if (null? options)
                   ()
                   `(ul
-                    ,@(map (^o `(li ,(fas-icon "angle-right")
-                                    ,(cdr (assoc "text" o))))
+                    ,@(map render-option
                            options))))))
 
 (define (render-lines lines)
@@ -283,7 +296,13 @@
                             `(input (@ (class "input") (type "text")
                                        (id "location-input")
                                        (placeholder "場所")
-                                       (value ,(get "location" "")))))))
+                                       (value ,(get "location" ""))))))
+          (div (@ (class "column"))
+               ,(form-field "トリガー" #f
+                            `(input (@ (class "input") (type "text")
+                                       (id "trigger-input")
+                                       (placeholder "トリガー")
+                                       (value ,(get "trigger" "")))))))
 
       (div (@ (class "columns is-vcentered"))
            (div (@ (class "column is-one-third"))

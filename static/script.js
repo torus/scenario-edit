@@ -37,6 +37,7 @@ function submit(arg) {
         type:  document.querySelector('#type-input').value,
         label: document.querySelector('#label-input').value,
         location: document.querySelector('#location-input').value,
+        trigger: document.querySelector('#trigger-input').value,
         "flags-required": flags_req,
         "flags-exclusive": flags_exc,
         "flags-set": flags_set,
