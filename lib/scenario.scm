@@ -30,12 +30,15 @@
 ;;
 
 (define (create-page . children)
+  (apply create-page/title "Scenario Edit" children))
+
+(define (create-page/title title . children)
   `(html
     (@ (lang "en"))
     (head
      (meta (@ (charset "utf-8")))
      (meta (@ (name "viewport") (content "width=device-width, initial-scale=1")))
-     (title "Scenario Edit")
+     (title ,title)
      (link (@ (rel "stylesheet")
               (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css")))
      (script (@ (src "https://kit.fontawesome.com/515fd4f349.js")
@@ -48,23 +51,34 @@
 (define (create-error-page e)
   (cons "<!DOCTYPE html>"
         (sxml:sxml->html
-         (create-page `(pre ,(report-error e #f))))))
+         (create-page/title
+          "ERROR!"
+          `((div (@ (class "container"))
+                 (h1 (@ (class "title"))
+                     "Something went wrong " ,(fas-icon "sad-tear"))
+                 (pre ,(report-error e #f))))))))
 
 (define-syntax ok
   (syntax-rules ()
-    [(_ req elements ...)
+    [(_ req title elements ...)
      (guard (e [else (report-error e)
                      (respond/ng req 500 :body (create-error-page e))])
             (respond/ok req (cons "<!DOCTYPE html>"
                                   (sxml:sxml->html
-                                   (create-page elements ...)))))]))
+                                   (create-page/title title elements ...)))))]))
+
+(define (container/ . children)
+  `(div (@ (class "container"))
+        ,@children))
 
 (define-http-handler "/"
   (^[req app]
     (violet-async
      (^[await]
-       (ok req `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
-                    (li (a (@ (href "/admin/setup")) "Setup"))))))))
+       (ok req "PlayLogic Scenario Editor"
+           `(container/
+             (ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
+                 (li (a (@ (href "/admin/setup")) "Setup")))))))))
 
 (define (fas-icon name)
   `(span (@ (class "icon"))
@@ -530,9 +544,9 @@
   (let ((content (read-scenario-from-db await id)))
     (let-values (((convs prev-conv)
                   (elems content)))
-      (append (reverse convs)
-              (list (add-dialog-button id (label-of prev-conv)
-                                             (+ 1024 (ord-of prev-conv))))))))
+      `(,@(reverse convs)
+        ,(add-dialog-button id (label-of prev-conv)
+                            (+ 1024 (ord-of prev-conv)))))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
@@ -575,11 +589,13 @@
                  content))))
 
 (define (scenario-page-header await id)
-  `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert"))
-         ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
-      " "
-      (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv"))
-         ,(fas-icon "save") (span "Update CSV/JSON"))))
+  (container/
+   `(h1 (@ (class "title")) ,#"Scenario #~id")
+   `(p (a (@ (class "button is-danger") (href ,#`"/scenarios/,|id|/convert"))
+          ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
+       " "
+       (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv"))
+          ,(fas-icon "save") (span "Update CSV/JSON")))))
 
 (define-http-handler #/^\/scenarios\/(\d+)$/
   (^[req app]
@@ -587,7 +603,9 @@
      (^[await]
        (let-params req ([id "p:1"])
                    (let ((rendered (read-and-render-scenario-file await id)))
-                     (ok req (scenario-page-header await id) rendered)))))))
+                     (ok req #"Scenario #~id"
+                         (scenario-page-header await id)
+                         rendered)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/insert\/(.*)/
   (^[req app]
@@ -597,7 +615,7 @@
                         [ord "p:2" :convert (cut string->number <> 16)])
                    (let ((rendered
                           (read-and-render-scenario-file/insert await id ord)))
-                     (ok req rendered)))))))
+                     (ok req "会話を追加" rendered)))))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/edit\/(.*)/
   (^[req app]
@@ -607,7 +625,7 @@
                         [label "p:2"])
                    (let ((rendered
                           (read-and-render-scenario-file/edit await id label)))
-                     (ok req rendered)))))))
+                     (ok req "会話を編集" rendered)))))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]
@@ -842,7 +860,7 @@
     (violet-async
      (^[await]
        (let-params req ([data-id "p:1"])
-                   (ok req
+                   (ok req "データを更新"
                        `(p (span ,(convert-json-to-csv await data-id))
                            " "
                            (span (a (@ (href ,#"/scenarios/~|data-id|"))
@@ -900,7 +918,7 @@
       (^[await]
         (let-params req ([id "p:1"] [loc "p:2"])
                     (let ((rendered (render-location await id loc)))
-                      (ok req rendered)))))))
+                      (ok req #"場所：~loc" rendered)))))))
 
 (define-http-handler #/^\/static\// (file-handler))
 
@@ -927,7 +945,7 @@
     (violet-async
      (^[await]
        (await create-tables)
-       (ok req '(p "done")
+       (ok req "Setup" '(p "done")
            '(a (@ (href "/")) "Back Home"))))))
 
 (define (convert-dialog-to-relations await id dialog dialog-order)
@@ -1051,15 +1069,11 @@
   (^[req app]
      (violet-async
       (^[await]
-        ;; (define (await/error proc)
-        ;;   (let ((result (await proc)))
-        ;;     (if (is-a? result <error>)
-        ;;         (raise result)
-        ;;         result)
-        ;;     ))
         (let-params req ([id "p:1"])
                     (let ((result (convert-scenario-file-to-relations await id)))
-                      (ok req result " " '(a (@ (href "/")) "Back Home"))))))))
+                      (ok req "データ変換"
+                          result " " `(a (@ (href ,#"/scenarios/~id"))
+                                         "Back to Scenario"))))))))
 
 (define (create-tables)
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
