@@ -266,6 +266,7 @@
     `(select (@ (id "type-input"))
              (option (@ ,@(value-and-selected type "conversation")) "会話")
              (option (@ ,@(value-and-selected type "inspection"))   "調べる")
+             (option (@ ,@(value-and-selected type "area"))         "エリア")
              (option (@ ,@(value-and-selected type "message"))      "メッセージ")
              (option (@ ,@(value-and-selected type "auto"))         "自動")))
 
@@ -716,11 +717,7 @@
          (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((line-writer (make-csv-writer ","))
-        (option-writer (make-csv-writer ","))
-        (dialog-writer (make-csv-writer ","))
-        (flag-writer (make-csv-writer ","))
-        (json (read-scenario-from-db await data-id)))
+  (let ((json (read-scenario-from-db await data-id)))
     (overwrite-json-file await json (json-file-path data-id))
     (call-with-output-file "csv/Dialogs.csv"
       (^[dialog-port]
@@ -730,16 +727,16 @@
               (^[option-port]
                 (call-with-output-file "csv/Dialogs_flags.csv"
                   (^[flag-port]
-                    (line-writer   line-port   '("" "character" "text" "options"))
-                    (flag-writer   flag-port   '("" "type" "flag"))
-                    (json-match
-                     json
-                     (write-with-csv-writers line-port line-writer
-                                             option-port option-writer
-                                             dialog-port dialog-writer
-                                             flag-port flag-writer)
-                     )))
-                ))))))
+                    (call-with-output-file "csv/Dialogs_triggermap.csv"
+                      (^[triggermap-port]
+                        (json-match
+                         json
+                         (write-with-csv-writers line-port
+                                                 option-port
+                                                 dialog-port
+                                                 flag-port
+                                                 triggermap-port)))
+                      )))))))))
     "Conversion done!"))
 
 (define (safe-assoc-vec name alist)
@@ -748,14 +745,17 @@
 (define (safe-assoc name alist)
   (or (assoc name alist) (cons #f "")))
 
-(define (write-with-csv-writers line-port line-writer
-                                option-port option-writer
-                                dialog-port dialog-writer
-                                flag-port flag-writer)
+(define (write-with-csv-writers line-port option-port dialog-port
+                                flag-port triggermap-port)
 
-  (define w-option (cut option-writer option-port <>))
-  (define w-flag   (cut flag-writer   flag-port   <>))
-  (define w-dialog (cut dialog-writer dialog-port <>))
+  (define csv-writer (make-csv-writer ","))
+  (define w-option  (cut csv-writer option-port     <>))
+  (define w-line    (cut csv-writer line-port       <>))
+  (define w-flag    (cut csv-writer flag-port       <>))
+  (define w-dialog  (cut csv-writer dialog-port     <>))
+  (define w-trigger (cut csv-writer triggermap-port <>))
+
+  (define trigger-table (make-hash-table string-comparator))
 
   (define (write-option % @ label num optnum option)
     (let ((flags-req (cdr (safe-assoc-vec "flags-required"  option)))
@@ -773,8 +773,11 @@
        (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
        flags-req))))
 
-  (w-dialog '("" "type" "location" "trigger" "count" "flagcount"))
-  (w-option '("" "option" "flagcount" "jump"))
+  (w-dialog  '("" "type" "location" "trigger" "count" "flagcount"))
+  (w-option  '("" "option" "flagcount" "jump"))
+  (w-line    '("" "character" "text" "options"))
+  (w-flag    '("" "type" "flag"))
+  (w-trigger '("" "dialog"))
 
   (^[% @]
     (@ (^d
@@ -784,6 +787,12 @@
               (type      (cdr (safe-assoc "type" d)))
               (linecount (vector-length (cdr (safe-assoc-vec "lines" d))))
               (flagcount 0))
+          (when (and (> (string-length location) 0)
+                     (> (string-length trigger) 0))
+            (let* ((key #"~|location|/~trigger")
+                   (index (hash-table-get trigger-table key 0)))
+              (w-trigger `(,#"~|key|_~index" ,label))
+              (hash-table-put! trigger-table key (+ index 1))))
           ((% "flags-required"
               (@
                 (^d
@@ -819,9 +828,8 @@
                                  (^x (inc! optnum)))
                                 d))))
                          j))
-                      (line-writer line-port
-                                   `(,#"~|label|_~num" ,char ,text
-                                     ,(x->string optcount)))
+                      (w-line `(,#"~|label|_~num" ,char ,text
+                                ,(x->string optcount)))
                       (inc! num)
                       #t
                       j))
