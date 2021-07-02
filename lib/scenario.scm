@@ -637,7 +637,7 @@
                     (guard (e [else (report-error e)])
                            (construct-json new-json))
                     (flush)))
-                (sys-system #"jq . < ~tmpfile > ~filename"))
+                (sys-system #"jq '[.[] | del(.id) | del(.ord) | del(.lines[].id) | del(.lines[].ord) ]' < ~tmpfile > ~filename"))
               :directory "json")
              'done
              ))))
