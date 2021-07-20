@@ -554,21 +554,26 @@
 (define (read-and-render-scenario-file/insert await id ord)
   (define (new-form ord)
     (render-dialog-form #f id
-                              `(input (@ (id "ord-input")
-                                         (type "hidden")
-                                         (value ,ord)))))
+                        `(input (@ (id "ord-input")
+                                   (type "hidden")
+                                   (value ,ord)))))
   (let ((content (read-scenario-from-db await id)))
-          (reverse
-           (fold2 (^[conv rest inserted?]
-                   (let ((next-ord (cdr (assoc "ord" conv))))
-                     (if (and (not inserted?) (> next-ord ord))
-                         (values (cons (render-dialog conv id)
-                                       (cons (new-form ord) rest))
-                                 #t)
-                         (values (cons (render-dialog conv id) rest)
-                                 inserted?))))
-                  () #f
-                  content))))
+    (reverse
+     (let-values (((result inserted?)
+                   (fold2 (^[conv rest inserted?]
+                            (let ((next-ord (cdr (assoc "ord" conv))))
+                              (if (and (not inserted?) (> next-ord ord))
+                                  (values (cons (render-dialog conv id)
+                                                (cons (new-form ord) rest))
+                                          #t)
+                                  (values (cons (render-dialog conv id) rest)
+                                          inserted?))))
+                          () #f
+                          content)))
+       (if inserted?
+           result
+           (cons (new-form ord) result))
+       ))))
 
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
