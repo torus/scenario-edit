@@ -78,6 +78,7 @@
        (ok req "PlayLogic Scenario Editor"
            `(container/
              (ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
+		 (li (a (@ (href "/scenarios/2")) "Scenario #2"))
                  (li (a (@ (href "/admin/setup")) "Setup")))))))))
 
 (define (fas-icon name)
@@ -542,11 +543,14 @@
            () #f
            content))
   (let ((content (read-scenario-from-db await id)))
-    (let-values (((convs prev-conv)
-                  (elems content)))
-      `(,@(reverse convs)
-        ,(add-dialog-button id (label-of prev-conv)
-                            (+ 1024 (ord-of prev-conv)))))))
+    (if (zero? (vector-length content))
+	`(,(add-dialog-button id #f 1024))
+	(let-values (((convs prev-conv)
+                      (elems content)))
+	  `(,@(reverse convs)
+            ,(add-dialog-button id (label-of prev-conv)
+				(+ 1024 (ord-of prev-conv))))))
+    ))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
