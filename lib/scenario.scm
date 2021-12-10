@@ -268,6 +268,11 @@
     (if conv
         (cdr (assoc name conv))
         default))
+  (define (get-optional name default)
+    (if conv
+        (let ((found (assoc name conv)))
+          (if found (cdr found) default))
+        default))
   (define (value-and-selected selected type)
     (if (string=? type selected)
         `((value ,type) (selected "selected"))
@@ -283,7 +288,7 @@
              (option (@ ,@(value-and-selected type "inspection"))   "調べる")
              (option (@ ,@(value-and-selected type "area"))         "エリア")
              (option (@ ,@(value-and-selected type "message"))      "メッセージ")
-             (option (@ ,@(value-and-selected type "auto"))         "自動")))
+             (option (@ ,@(value-and-selected type "portal"))       "ポータル")))
 
   (define (conv-form)
     (define (flags key)
@@ -344,7 +349,18 @@
                           (id "flags-set-input")
                           (type "text")
                           (placeholder "フラグ1 フラグ2 ...")
-                          (value ,(flags "flags-set"))))))))
+                          (value ,(flags "flags-set"))))))
+
+      (div (@ (id "portal-destination-input")
+              (class "columns is-vcentered"))
+           (div (@ (class "column is-one-third"))
+                (p (span (@ (class "tag is-primary"))
+                         "行先ポータルのラベル"))
+                (input (@ (class "input")
+                          (id "portal-destination")
+                          (type "text")
+                          (placeholder "行先ポータル")
+                          (value ,(get-optional "portal-destination" ""))))))))
 
   (define (line-fields lines)
     (reverse
@@ -475,7 +491,19 @@
            " WHERE dialog_id = ?")
          `(,dialog-id)
          (^[rset]
-           (map-to <vector> (^[row] (read-flags-from-db await row)) rset)))))))
+           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+
+      ,@(if (string=? typ "portal")
+            `(("portal-destination" .
+               ,(with-query-result/tree
+                 await
+                 '("SELECT destination"
+                   " FROM portals"
+                   " WHERE dialog_id = ?")
+                 `(,dialog-id)
+                 (^[rset]
+                   (car (map (^[row] (vector-ref row 0)) rset))))))
+            ()))))
 
 (define (read-flags-from-db await row)
   (let ((flag (vector-ref row 0)))
@@ -756,14 +784,17 @@
                   (^[flag-port]
                     (call-with-output-file "csv/Dialogs_triggermap.csv"
                       (^[triggermap-port]
-                        (json-match
-                         json
-                         (write-with-csv-writers line-port
-                                                 option-port
-                                                 dialog-port
-                                                 flag-port
-                                                 triggermap-port)))
-                      )))))))))
+                        (call-with-output-file "csv/Dialogs_portals.csv"
+                          (^[portal-port]
+                            (json-match
+                             json
+                             (write-with-csv-writers line-port
+                                                     option-port
+                                                     dialog-port
+                                                     flag-port
+                                                     triggermap-port
+                                                     portal-port)))
+                          )))))))))))
     "Conversion done!"))
 
 (define (safe-assoc-vec name alist)
@@ -773,7 +804,7 @@
   (or (assoc name alist) (cons #f "")))
 
 (define (write-with-csv-writers line-port option-port dialog-port
-                                flag-port triggermap-port)
+                                flag-port triggermap-port portal-port)
 
   (define csv-writer (make-csv-writer ","))
   (define w-option  (cut csv-writer option-port     <>))
@@ -781,6 +812,7 @@
   (define w-flag    (cut csv-writer flag-port       <>))
   (define w-dialog  (cut csv-writer dialog-port     <>))
   (define w-trigger (cut csv-writer triggermap-port <>))
+  (define w-portal  (cut csv-writer portal-port     <>))
 
   (define trigger-table (make-hash-table string-comparator))
 
@@ -805,6 +837,7 @@
   (w-line    '("" "character" "text" "options"))
   (w-flag    '("" "type" "flag"))
   (w-trigger '("" "dialog"))
+  (w-portal  '("" "destination"))
 
   (^[% @]
     (@ (^d
@@ -863,6 +896,11 @@
                       j))
                   d))))
            d)
+
+          ((% "portal-destination"
+             (^d
+              (w-portal `(,label ,d)))) d)
+
           )))))
 
 (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
@@ -1018,6 +1056,11 @@
                           dialog-id flag))
      flags-set))
 
+  (define (add-portal dialog-id destination)
+    (execute-query-tree '("INSERT OR REPLACE INTO portals (dialog_id, destination)"
+                          " VALUES (?, ?)")
+                        dialog-id destination))
+
   (let ((label (cdr (assoc "label" dialog)))
         (location (cdr (assoc "location" dialog)))
         (trigger (cdr (assoc "trigger" dialog)))
@@ -1033,10 +1076,12 @@
     (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
           (line-order 0))
       (add-dialog-flags dialog-id flags-req flags-exc flags-set)
-      (for-each
-       (^[line]
-         (set! line-order (add-line line dialog-id line-order)))
-       lines))
+      (when (string=? type "portal")
+        (let ((portal-destination (cdr (assoc "portal-destination" dialog))))
+          (add-portal dialog-id portal-destination)))
+      (for-each (^[line]
+                  (set! line-order (add-line line dialog-id line-order)))
+                lines))
     ))
 
 (define (convert-scenario-file-to-relations await id)
@@ -1132,12 +1177,17 @@
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags_required ("
                         "  option_id   INTEGER NOT NULL"
-                        ", flag TEXT NOT NULL"
+                        ", flag        TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
                         "  option_id   INTEGER NOT NULL"
                         ", destination TEXT NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS portals ("
+                        "  dialog_id   INTEGER PRIMARY KEY"
+                        ", destination INTEGER NOT NULL"
                         ")"))
   )
 

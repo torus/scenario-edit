@@ -44,6 +44,12 @@ function submit(arg) {
         lines
     }
 
+    if (data.type == 'portal') {
+        data['portal-destination']
+            = document.querySelector('#portal-destination').value
+        data.lines = []
+    }
+
     var input_elem
     if (input_elem = document.querySelector('#ord-input')) {
         data["ord"] = input_elem.value
@@ -75,10 +81,6 @@ function submit(arg) {
     return form.submit()
 }
 
-const form = document.querySelector('#edit-form')
-if (form)
-    form.onsubmit = submit
-
 function on_line_plus_button_clicked(ev) {
     console.log("plus line")
     const orig = document.querySelector("#hidden-field > div")
@@ -89,10 +91,6 @@ function on_line_plus_button_clicked(ev) {
     container.append(newelem)
     return false
 }
-
-const plus_button = document.querySelector("#add-line-button")
-if (plus_button)
-    plus_button.addEventListener("click", on_line_plus_button_clicked)
 
 function on_add_option_button_clicked(ev) {
     console.log(ev)
@@ -108,5 +106,32 @@ function setup_line_form(elem) {
     })
 }
 
-const line_forms = document.querySelectorAll(".line-form")
-line_forms.forEach(setup_line_form)
+function setup_form(form) {
+    form.onsubmit = submit
+
+    const plus_button = document.querySelector("#add-line-button")
+    plus_button.addEventListener("click", on_line_plus_button_clicked)
+
+    const line_forms = document.querySelectorAll(".line-form")
+    line_forms.forEach(setup_line_form)
+
+    const type_input = document.querySelector("#type-input")
+    const dest_input = document.querySelector("#portal-destination-input")
+
+    const update_form = () => {
+        if (type_input.value == 'portal') {
+            plus_button.classList.add('is-hidden')
+            dest_input.classList.remove('is-hidden')
+        } else {
+            plus_button.classList.remove('is-hidden')
+            dest_input.classList.add('is-hidden')
+        }
+    }
+
+    type_input.addEventListener("change", update_form)
+    update_form()
+}
+
+const form = document.querySelector('#edit-form')
+if (form)
+    setup_form(form)
