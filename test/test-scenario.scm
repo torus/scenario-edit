@@ -4,3 +4,6 @@
 (import scenario)
 
 (test-module 'scenario)
+
+(import editor)
+(test-module 'editor)
