@@ -1,16 +1,12 @@
-(define-module editor
-  (use srfi-35)
-  (use gauche.threads)
+(define-module playlogic.editor
   (use gauche.collection)
 
   (use file.util)
-  (use rfc.http)
   (use rfc.json)
   (use sxml.tools)
   (use text.csv)
   (use text.tree)
 
-  (use violet)
   (use makiki)
 
   (use dbi)
@@ -34,7 +30,7 @@
           ok
    ))
 
-(select-module editor)
+(select-module playlogic.editor)
 
 ;;
 ;; Application

@@ -1,9 +1,9 @@
 (use gauche.test)
 (test-start "Scenario")
-(load "./lib/scenario")
-(import scenario)
+(load "./lib/playlogic")
+(import playlogic)
 
-(test-module 'scenario)
+(test-module 'playlogic)
 
-(import editor)
-(test-module 'editor)
+(import playlogic.editor)
+(test-module 'playlogic.editor)
