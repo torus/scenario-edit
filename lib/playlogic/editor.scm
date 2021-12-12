@@ -28,6 +28,9 @@
           convert-scenario-file-to-relations
           scenario-page-header
           ok
+
+          ;; query
+          with-query-result/tree
    ))
 
 (select-module playlogic.editor)
@@ -36,10 +39,13 @@
 ;; Application
 ;;
 
+(define *session-id* 0)
+
 (define (create-page . children)
   (apply create-page/title "Scenario Edit" children))
 
 (define (create-page/title title . children)
+  (inc! *session-id*)
   `(html
     (@ (lang "en"))
     (head
@@ -633,7 +639,11 @@
           ,(fas-icon "skull-crossbones") (span "Convert from JSON"))
        " "
        (a (@ (class "button") (href ,#`"/scenarios/,|id|/update-csv"))
-          ,(fas-icon "save") (span "Update CSV/JSON")))))
+          ,(fas-icon "save") (span "Update CSV/JSON"))
+       " "
+       (a (@ (class "button is-primary")
+             (href ,#`"/scenarios/,|id|/play/,*session-id*"))
+          ,(fas-icon "gamepad") (span "Play!")))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]

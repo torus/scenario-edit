@@ -7,3 +7,6 @@
 
 (import playlogic.editor)
 (test-module 'playlogic.editor)
+
+(import playlogic.play)
+(test-module 'playlogic.play)

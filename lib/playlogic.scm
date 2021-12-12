@@ -8,6 +8,7 @@
 
   (add-load-path "." :relative)
   (use playlogic.editor)
+  (use playlogic.play)
 
   (export playlogic-start!
    ))
@@ -117,7 +118,15 @@
                            result " " `(a (@ (href ,#"/scenarios/~id"))
                                           "Back to Scenario"))))))))
 
-
+  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)$/
+    (^[req app]
+      (violet-async
+       (^[await]
+         (let-params req ([id "p:1"]
+                          [session-id "p:2"])
+                     (let-values (((title rendered)
+                                   (play-game! await id session-id)))
+                       (ok req title rendered)))))))
 
 
 
