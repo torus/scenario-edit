@@ -11,11 +11,12 @@
   (use playlogic.editor)
 
   (export play-game!
+          play-game-cont!
    ))
 
 (select-module playlogic.play)
 
-(define *session-table* (make-hash-table))
+(define *session-table* (make-hash-table 'string=?))
 
 (define (make-session await data-id)
   (define initial-loc #f)
@@ -43,11 +44,69 @@
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if session
-         (show-game-state session)
+         (show-game-state await data-id session-id session)
          (let ((new-session (make-session await data-id)))
-           (hash-table-put! *session-table* session-id new-session)
-           (show-game-state new-session))))))
+           (hash-table-put! *session-table* (x->string session-id) new-session)
+           (show-game-state await data-id session-id new-session))))))
 
-(define (show-game-state session)
-  (construct-json-string session)
-  )
+(define (cont-table-add proc)
+  (inc! *cont-id*)
+  (hash-table-put! *cont-table* (x->string *cont-id*) proc)
+  *cont-id*)
+
+(define (get-location-for-portal await dialog-id)
+  (let ((dest (with-query-result/tree
+               await
+               '("SELECT d.location"
+                 " FROM dialogs d, portals p"
+                 " WHERE p.dialog_id = ?"
+                 "   AND d.label = 'ポータル：' || p.destination"
+                 " LIMIT 1")
+               `(,dialog-id)
+               (^[rset] (map (cut vector-ref <> 0) rset)))))
+    (car dest)))
+
+(define (show-game-state await data-id session-id session)
+  (define (show-portal dialog-id trigger)
+    (let* ((new-location (get-location-for-portal
+                          await dialog-id))
+           (cont-id
+            (cont-table-add
+             (^[]
+               (hash-table-put!
+                *session-table* session-id
+                (assoc-set! session "location" new-location))))))
+      `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
+              ,#"移動 ~new-location"))))
+
+  (let ((loc (json-query session '("location"))))
+    (with-query-result/tree
+     await
+     '("SELECT dialog_id, type, trigger FROM dialogs"
+       " WHERE scenario_id = ? AND location = ? ORDER BY ord")
+     `(,data-id ,loc)
+     (^[rset]
+       `(ul ,@(map
+               (^[row]
+                 (await
+                  (^[]
+                    (let ((dialog-id (vector-ref row 0))
+                          (type      (vector-ref row 1))
+                          (trigger   (vector-ref row 2)))
+                      (case #?=(string->symbol type)
+                            ((portal)
+                             (show-portal dialog-id trigger))
+                            (else #"~trigger ~type"))
+                      ))))
+               rset))))))
+
+(define *cont-id* 0)
+(define *cont-table* (make-hash-table 'string=?))
+
+(define (play-game-cont! await data-id session-id cont-id)
+  (let ((proc (hash-table-get *cont-table* cont-id #f)))
+    (hash-table-delete! *cont-table* cont-id)
+    (if proc
+        (proc)
+        (print #"Continuation not found: ~cont-id"))
+    ))

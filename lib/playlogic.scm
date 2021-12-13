@@ -128,7 +128,16 @@
                                    (play-game! await id session-id)))
                        (ok req title rendered)))))))
 
-
+  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/do\/(\d+)$/
+    (^[req app]
+      (violet-async
+       (^[await]
+         (let-params req ([id         "p:1"]
+                          [session-id "p:2"]
+                          [cont-id    "p:3"])
+                     (play-game-cont! await id session-id cont-id)
+                     (respond/redirect req #"/scenarios/~|id|/play/~session-id")))
+       )))
 
   (let ((conn (dbi-connect "dbi:sqlite3:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
