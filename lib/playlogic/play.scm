@@ -77,7 +77,14 @@
                 *session-table* session-id
                 (assoc-set! session "location" new-location))))))
       `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
-              ,#"移動 ~new-location"))))
+              ,(fas-icon "walking")
+              ,#" ~new-location"))))
+
+  (define (show-inspection dialog-id trigger)
+    `(li (a (@ (href ,#"#")) ,(fas-icon "search") ,#" ~trigger")))
+
+  (define (show-conversation dialog-id trigger)
+    `(li (a (@ (href ,#"#")) ,(fas-icon "comment") ,#" ~trigger")))
 
   (let ((loc (json-query session '("location"))))
     (with-query-result/tree
@@ -86,19 +93,32 @@
        " WHERE scenario_id = ? AND location = ? ORDER BY ord")
      `(,data-id ,loc)
      (^[rset]
-       `(ul ,@(map
-               (^[row]
-                 (await
-                  (^[]
-                    (let ((dialog-id (vector-ref row 0))
-                          (type      (vector-ref row 1))
-                          (trigger   (vector-ref row 2)))
-                      (case #?=(string->symbol type)
-                            ((portal)
-                             (show-portal dialog-id trigger))
-                            (else #"~trigger ~type"))
-                      ))))
-               rset))))))
+       `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
+              (ul
+               (li (a (@ (href ,#`"/scenarios/,|data-id|"))
+                      ,(fas-icon "home") (span "Back to Editor")))))
+         (div (@ (class "section"))
+              (div (@ (class "container"))
+
+                   (h2 (@ (class "title is-2")) ,loc)
+                   (ul (@ (class "menu-list"))
+                       ,@(map
+                          (^[row]
+                            (await
+                             (^[]
+                               (let ((dialog-id (vector-ref row 0))
+                                     (type      (vector-ref row 1))
+                                     (trigger   (vector-ref row 2)))
+                                 (case (string->symbol type)
+                                       ((portal)
+                                        (show-portal dialog-id trigger))
+                                       ((inspection)
+                                        (show-inspection dialog-id trigger))
+                                       ((conversation)
+                                        (show-conversation dialog-id trigger))
+                                       (else #"~trigger ~type"))
+                                 ))))
+                          rset)))))))))
 
 (define *cont-id* 0)
 (define *cont-table* (make-hash-table 'string=?))

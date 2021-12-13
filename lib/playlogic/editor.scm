@@ -29,6 +29,8 @@
           scenario-page-header
           ok
 
+          fas-icon
+
           ;; query
           with-query-result/tree
    ))
