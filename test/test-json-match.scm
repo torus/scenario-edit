@@ -69,3 +69,12 @@
                           (o "c"
                              (a (o "d" id)
                                 (o "e" id))))))))))
+
+(test-section "json-query")
+
+(test-behavior "returns the element"
+               (^[]
+                 (let ((json (parse-json-string *json*)))
+                   (assert-equal
+                    13
+                    (json-query json '(1 "c" 0 "d"))))))

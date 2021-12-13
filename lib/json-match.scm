@@ -1,7 +1,8 @@
 (define-module json-match
   (export json-match-object
           json-match-array
-          json-match))
+          json-match
+          json-query))
 
 (select-module json-match)
 
@@ -44,3 +45,15 @@
 
   ((proc o a) json)
   )
+
+;; Utilities
+
+(define (json-query json path)
+  (let loop ((path path)
+             (json json))
+    (if (null? path)
+        json
+        (let ((p (car path)))
+          (if (number? p)
+              (loop (cdr path) (vector-ref json p))
+              (loop (cdr path) (cdr (assoc p json))))))))
