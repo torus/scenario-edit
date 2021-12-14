@@ -8,6 +8,7 @@
 
   (add-load-path "." :relative)
   (use json-match)
+  (use query)
   (use playlogic.editor)
 
   (export play-game!
@@ -86,12 +87,32 @@
   (define (show-conversation dialog-id trigger)
     `(li (a (@ (href ,#"#")) ,(fas-icon "comment") ,#" ~trigger")))
 
+  (define (query loc flags)
+    (build-query
+     *sqlite-conn*
+     `(SELECT "d" |.| "dialog_id"
+              |,| "d" |.| "type"
+              |,| "d" |.| "trigger"
+              FROM "dialogs" "d"
+              LEFT OUTER JOIN
+              (SELECT * FROM "flags_required" WHERE "flag" NOT IN
+                      ,(intersperse '|,| flags))
+              "fr"
+              ON "d" |.| "dialog_id" = "fr" |.| "dialog_id"
+              LEFT OUTER JOIN
+              (SELECT * FROM "flags_exclusive" WHERE "flag" IN
+                      ,(intersperse '|,| flags))
+              "fe"
+              ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
+              WHERE "d" |.| "location" = ,loc
+              AND "fr" |.| "flag" IS NULL
+              AND "fe" |.| "flag" IS NULL)))
+
   (let ((loc (json-query session '("location"))))
     (with-query-result/tree
      await
-     '("SELECT dialog_id, type, trigger FROM dialogs"
-       " WHERE scenario_id = ? AND location = ? ORDER BY ord")
-     `(,data-id ,loc)
+     (query loc (vector->list (json-query session '("flags"))))
+     `()
      (^[rset]
        `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
               (ul
