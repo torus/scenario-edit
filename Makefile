@@ -12,5 +12,6 @@ clean:
 .PHONY: check run clean build
 
 check:
+	gosh test/test-sqlite.scm
 	gosh test/test-json-match.scm
 	gosh -I /usr/local/lib/violet test/test-scenario.scm
