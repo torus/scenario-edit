@@ -147,6 +147,7 @@
   (let ((label     (get "label"))
         (lines     (get "lines"))
         (loc       (get "location"))
+        (type      (get "type"))
         (trigger   (get "trigger"))
         (ord       (get "ord"))
         (flags-req (get "flags-required"))
@@ -158,7 +159,7 @@
                         ,@additioanl-elements
                         (div (@ (class "column is-2"))
                              (span (@ (class "tag is-info"))
-                                   ,(get "type")))
+                                   ,type))
                         (div (@ (class "column is-one-third"))
                              (h4 (@ (class "title is-4")) ,label))
                         (div (@ (class "column"))
@@ -183,10 +184,15 @@
                              ,(intersperse
                                " "
                                (map (^f `(span (@ (class "tag is-info")) ,f))
-                                   flags-set)))
+                                   flags-set))))
 
-
-                        )
+                   ,(if (string=? type "portal")
+                        `(div (@ (class "columns"))
+                              (div (@ (class "column"))
+                                   ,(fas-icon "walking")
+                                   " "
+                                   ,(get "portal-destination")))
+                        ())
                    ,@(render-lines lines)))))
 
 (define (render-dialog/edit-button conv data-id)
