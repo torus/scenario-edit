@@ -61,7 +61,7 @@
                '("SELECT d.location"
                  " FROM dialogs d, portals p"
                  " WHERE p.dialog_id = ?"
-                 "   AND d.label = 'ポータル：' || p.destination"
+                 "   AND d.trigger = p.destination"
                  " LIMIT 1")
                `(,dialog-id)
                (^[rset] (map (cut vector-ref <> 0) rset)))))
