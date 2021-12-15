@@ -29,6 +29,8 @@
           scenario-page-header
           ok
 
+          read-dialog-detail-from-db
+
           fas-icon
 
           ;; query
@@ -451,10 +453,10 @@
    (^[rset]
      (map-to <vector>
       (^[row]
-        (read-dialog-from-db await row))
+        (read-dialog-detail-from-db await row))
       rset))))
 
-(define (read-dialog-from-db await row)
+(define (read-dialog-detail-from-db await row)
   (let ((dialog-id (vector-ref row 0))
         (label   (vector-ref row 1))
         (loc     (vector-ref row 2))
