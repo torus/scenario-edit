@@ -15,3 +15,7 @@ services:
       VIRTUAL_HOST: ukiyo-96814.seaknot.dev
       LETSENCRYPT_HOST: ukiyo-96814.seaknot.dev
       LETSENCRYPT_EMAIL: toru-letsencrypt-ukiyo@torus.jp
+networks:
+   default:
+      external:
+         name: seaknotweb_default
