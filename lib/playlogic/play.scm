@@ -68,7 +68,7 @@
            (render-page await data-id session-id new-session)))
      )))
 
-(define (render-dialog conv data-id)
+(define (render-dialog await conv data-id session-id)
   (define (get name)
     (cdr (assoc name conv)))
 
@@ -115,13 +115,33 @@
                                (map (^f `(span (@ (class "tag is-info")) ,f))
                                    flags-set))))
 
-                   ,@(render-lines lines))
+                   ,@(render-lines await data-id session-id lines))
 ))
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
 
-(define (render-line char text options)
+(define (render-line await data-id session-id char text options)
+  (define (render-jump label)
+    (let ((dialog-id
+           (with-query-result/tree
+            await
+            (build-query *sqlite-conn* `(SELECT "dialog_id" FROM "dialogs"
+                                                WHERE "label" = ,label))
+            `()
+            (^[rset]
+              (car (map (cut vector-ref <> 0) rset))))))
+
+      `((a (@ (href
+              ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+          (span (@ (class "tag is-info"))
+                ,(fas-icon "arrow-circle-right") " "
+                ,label
+                )
+          ))
+      )
+    )
+
   (define (render-option o)
     `(li ,(fas-icon "angle-right")
          ,(cdr (assoc "text" o)) " "
@@ -129,11 +149,10 @@
                                  (cdr (safe-assoc-vec "flags-required" o))))
          " "
          ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
-            (if (> (vector-length jump) 0)
-                `((span (@ (class "tag is-info"))
-                        ,(fas-icon "arrow-circle-right") " "
-                        ,(vector-ref jump 0)))
-                ()))
+             (if (> (vector-length jump) 0)
+                 (render-jump (vector-ref jump 0))
+
+                 ()))
          ))
 
   `(div (@ (class "columns"))
@@ -147,14 +166,15 @@
                     ,@(map render-option
                            options))))))
 
-(define (render-lines lines)
+(define (render-lines await data-id session-id lines)
   (reverse
    (fold (^[line rest]
            (let ((char (cdr (assoc "character" line)))
                  (text (cdr (assoc "text" line)))
                  (options (let ((opt (assoc "options" line)))
                             (if opt (cdr opt) ()))))
-             (cons (render-line char text options) rest)))
+             (cons (render-line await data-id session-id char text options)
+                   rest)))
          () lines)))
 
 (define (play-game/dialog! await data-id session-id dialog-id)
@@ -179,7 +199,7 @@
   (define (content)
     (let ((conv (read-dialog-from-db await dialog-id)))
       (if (pair? conv)
-          (render-dialog (car conv) data-id)
+          (render-dialog await (car conv) data-id session-id)
           "Dialog not found."))
     )
 
