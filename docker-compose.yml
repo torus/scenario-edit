@@ -7,7 +7,11 @@ services:
       - ../Ukiyo/Dev/Dialogues/json:/code/json
       - ../Ukiyo/Dev/Dialogues:/code/csv
     ports:
-      - "2222:2222"
+      - "2227:2222"
     expose:
       - "2222"
     entrypoint: make run
+    environment:
+      VIRTUAL_HOST: ukiyo-96814.seaknot.dev
+      LETSENCRYPT_HOST: ukiyo-96814.seaknot.dev
+      LETSENCRYPT_EMAIL: toru-letsencrypt-ukiyo@torus.jp
