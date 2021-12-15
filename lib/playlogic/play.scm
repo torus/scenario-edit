@@ -1,4 +1,5 @@
 (define-module playlogic.play
+  (use scheme.set)
   (use gauche.collection)
   (use rfc.json)
 
@@ -12,6 +13,7 @@
   (use playlogic.editor)
 
   (export play-game!
+          play-game/dialog!
           play-game-cont!
    ))
 
@@ -40,15 +42,63 @@
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
+(define (render-page await data-id session-id session . content)
+  (let ((loc (json-query session '("location"))))
+    `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
+           (ul
+            (li (a (@ (href ,#`"/scenarios/,|data-id|"))
+                   ,(fas-icon "home") (span "Back to Editor")))))
+      (div (@ (class "container"))
+           (h2 (@ (class "title is-2")) ,loc)
+           (div (@ (class "columns"))
+                (div (@ (class "column is-one-third"))
+                     ,(show-game-state await data-id session-id session)
+                     )
+                (div (@ (class "column"))
+                     ,content))))))
+
 (define (play-game! await data-id session-id)
   (values
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if session
-         (show-game-state await data-id session-id session)
+         (render-page await data-id session-id session)
          (let ((new-session (make-session await data-id)))
            (hash-table-put! *session-table* (x->string session-id) new-session)
-           (show-game-state await data-id session-id new-session))))))
+           (render-page await data-id session-id new-session)))
+     )))
+
+(define (play-game/dialog! await data-id session-id dialog-id)
+  (define (get-new-flags)
+    (set-union
+     (with-query-result/tree
+      await
+      (build-query *sqlite-conn* `(SELECT "label" FROM "dialogs"
+                                          WHERE "dialog_id" = ,dialog-id))
+      `()
+      (^[rset]
+        (list->set string-comparator (map (cut vector-ref <> 0) rset))))
+
+     (with-query-result/tree
+      await
+      (build-query *sqlite-conn* `(SELECT "flag" FROM "flags_set"
+                                          WHERE "dialog_id" = ,dialog-id))
+      `()
+      (^[rset]
+        (list->set string-comparator (map (cut vector-ref <> 0) rset))))))
+
+  (values
+   "Playing!"
+   (let ((session (hash-table-get *session-table* session-id #f)))
+     (if (not session)
+         `(p "ERROR: no session. "
+             (a (@ (href ,#"/scenarios/~|data-id|"))
+                "Back to the Editor"))
+         (let ((flags (list->set string-comparator (vector->list (json-query session '("flags"))))))
+           (assoc-set! session "flags"
+                       (coerce-to <vector>
+                                  (set-union flags (get-new-flags))))
+           (render-page await data-id session-id session #"Dialog ~dialog-id"))))))
 
 (define (cont-table-add proc)
   (inc! *cont-id*)
@@ -82,10 +132,16 @@
               ,#" ~new-location"))))
 
   (define (show-inspection dialog-id trigger)
-    `(li (a (@ (href ,#"#")) ,(fas-icon "search") ,#" ~trigger")))
+    `(li
+      (a (@ (href
+             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+         ,(fas-icon "search") ,#" ~trigger")))
 
   (define (show-conversation dialog-id trigger)
-    `(li (a (@ (href ,#"#")) ,(fas-icon "comment") ,#" ~trigger")))
+    `(li
+      (a (@ (href
+             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+         ,(fas-icon "comment") ,#" ~trigger")))
 
   (define (query loc flags)
     (build-query
@@ -108,38 +164,40 @@
               AND "fr" |.| "flag" IS NULL
               AND "fe" |.| "flag" IS NULL)))
 
-  (let ((loc (json-query session '("location"))))
+  (define (show-options loc flags)
     (with-query-result/tree
      await
      (query loc (vector->list (json-query session '("flags"))))
      `()
      (^[rset]
-       `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
-              (ul
-               (li (a (@ (href ,#`"/scenarios/,|data-id|"))
-                      ,(fas-icon "home") (span "Back to Editor")))))
-         (div (@ (class "section"))
-              (div (@ (class "container"))
+       `(aside (@ (class "menu"))
+               (p (@ (class "menu-label"))
+                  "Options")
+               (ul (@ (class "menu-list"))
+                   ,@(map
+                      (^[row]
+                        (await
+                         (^[]
+                           (let ((dialog-id (vector-ref row 0))
+                                 (type      (vector-ref row 1))
+                                 (trigger   (vector-ref row 2)))
+                             (case (string->symbol type)
+                               ((portal)
+                                (show-portal dialog-id trigger))
+                               ((inspection)
+                                (show-inspection dialog-id trigger))
+                               ((conversation)
+                                (show-conversation dialog-id trigger))
+                               (else #"~trigger ~type"))
+                             ))))
+                      rset))
+               (p (@ (class "menu-label")) "Flags")
+               (ul (@ (class "menu-list"))
+                   ,@(map (^f `(li ,f)) flags))))))
 
-                   (h2 (@ (class "title is-2")) ,loc)
-                   (ul (@ (class "menu-list"))
-                       ,@(map
-                          (^[row]
-                            (await
-                             (^[]
-                               (let ((dialog-id (vector-ref row 0))
-                                     (type      (vector-ref row 1))
-                                     (trigger   (vector-ref row 2)))
-                                 (case (string->symbol type)
-                                       ((portal)
-                                        (show-portal dialog-id trigger))
-                                       ((inspection)
-                                        (show-inspection dialog-id trigger))
-                                       ((conversation)
-                                        (show-conversation dialog-id trigger))
-                                       (else #"~trigger ~type"))
-                                 ))))
-                          rset)))))))))
+  (let ((loc (json-query session '("location")))
+        (flags (json-query session '("flags"))))
+    (show-options loc flags)))
 
 (define *cont-id* 0)
 (define *cont-table* (make-hash-table 'string=?))
