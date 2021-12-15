@@ -51,7 +51,7 @@
       (div (@ (class "container"))
            (h2 (@ (class "title is-2")) ,loc)
            (div (@ (class "columns"))
-                (div (@ (class "column is-one-third"))
+                (div (@ (class "column is-3"))
                      ,(show-game-state await data-id session-id session)
                      )
                 (div (@ (class "column"))
@@ -67,6 +67,95 @@
            (hash-table-put! *session-table* (x->string session-id) new-session)
            (render-page await data-id session-id new-session)))
      )))
+
+(define (render-dialog conv data-id)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+
+
+  (let ((label     (get "label"))
+        (lines     (get "lines"))
+        (loc       (get "location"))
+        (type      (get "type"))
+        (trigger   (get "trigger"))
+        (ord       (get "ord"))
+        (flags-req (get "flags-required"))
+        (flags-exc (get "flags-exclusive"))
+        (flags-set (get "flags-set")))
+
+    `(
+                   (div (@ (class "columns is-vcentered"))
+                        #;(div (@ (class "column is-2"))
+                             (span (@ (class "tag is-info"))
+                                   ,type))
+                        (div (@ (class "column is-one-third"))
+                             (h4 (@ (class "title is-4")) ,label))
+                        (div (@ (class "column"))
+                             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                                   ,loc)
+                                ,(fas-icon "caret-right") ,trigger))
+                        (div (@ (class "column is-1"))
+                             (p (@ (class "has-text-grey"))
+                                "0x" ,(number->string ord 16))))
+                   (div (@ (class "columns"))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                    flags-req)))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-danger")) ,f))
+                                   flags-exc)))
+                        (div (@ (class "column is-one-third"))
+                             ,(intersperse
+                               " "
+                               (map (^f `(span (@ (class "tag is-info")) ,f))
+                                   flags-set))))
+
+                   ,@(render-lines lines))
+))
+
+(define (safe-assoc-vec name alist)
+  (or (assoc name alist) (cons #f #())))
+
+(define (render-line char text options)
+  (define (render-option o)
+    `(li ,(fas-icon "angle-right")
+         ,(cdr (assoc "text" o)) " "
+         ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                 (cdr (safe-assoc-vec "flags-required" o))))
+         " "
+         ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
+            (if (> (vector-length jump) 0)
+                `((span (@ (class "tag is-info"))
+                        ,(fas-icon "arrow-circle-right") " "
+                        ,(vector-ref jump 0)))
+                ()))
+         ))
+
+  `(div (@ (class "columns"))
+        (div (@ (class "column is-2 has-text-right"))
+             ,char)
+        (div (@ (class "column"))
+             ,text
+             ,(if (null? options)
+                  ()
+                  `(ul
+                    ,@(map render-option
+                           options))))))
+
+(define (render-lines lines)
+  (reverse
+   (fold (^[line rest]
+           (let ((char (cdr (assoc "character" line)))
+                 (text (cdr (assoc "text" line)))
+                 (options (let ((opt (assoc "options" line)))
+                            (if opt (cdr opt) ()))))
+             (cons (render-line char text options) rest)))
+         () lines)))
 
 (define (play-game/dialog! await data-id session-id dialog-id)
   (define (get-new-flags)
@@ -87,6 +176,13 @@
       (^[rset]
         (list->set string-comparator (map (cut vector-ref <> 0) rset))))))
 
+  (define (content)
+    (let ((conv (read-dialog-from-db await dialog-id)))
+      (if (pair? conv)
+          (render-dialog (car conv) data-id)
+          "Dialog not found."))
+    )
+
   (values
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
@@ -94,11 +190,12 @@
          `(p "ERROR: no session. "
              (a (@ (href ,#"/scenarios/~|data-id|"))
                 "Back to the Editor"))
-         (let ((flags (list->set string-comparator (vector->list (json-query session '("flags"))))))
+         (let ((flags (list->set string-comparator
+                                 (vector->list (json-query session '("flags"))))))
            (assoc-set! session "flags"
                        (coerce-to <vector>
                                   (set-union flags (get-new-flags))))
-           (render-page await data-id session-id session #"Dialog ~dialog-id"))))))
+           (render-page await data-id session-id session (content)))))))
 
 (define (cont-table-add proc)
   (inc! *cont-id*)
@@ -116,6 +213,20 @@
                `(,dialog-id)
                (^[rset] (map (cut vector-ref <> 0) rset)))))
     (car dest)))
+
+(define (read-dialog-from-db await dialog-id)
+  (with-query-result/tree
+   await
+   '("SELECT dialog_id, label, location, type, ord, trigger"
+     " FROM dialogs"
+     " WHERE dialog_id = ?"
+     " ORDER BY ord")
+   `(,dialog-id)
+   (^[rset]
+     (map
+      (^[row]
+        (read-dialog-detail-from-db await row))
+      rset))))
 
 (define (show-game-state await data-id session-id session)
   (define (show-portal dialog-id trigger)
