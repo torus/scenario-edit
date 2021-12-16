@@ -28,6 +28,7 @@
           convert-scenario-file-to-relations
           scenario-page-header
           ok
+          ok*
 
           read-dialog-detail-from-db
 
@@ -83,6 +84,14 @@
             (respond/ok req (cons "<!DOCTYPE html>"
                                   (sxml:sxml->html
                                    (create-page/title title elements ...)))))]))
+(define-syntax ok*
+  (syntax-rules ()
+    [(_ req elements)
+     (guard (e [else (report-error e)
+                     (respond/ng req 500 :body (create-error-page e))])
+            (respond/ok req (cons "<!DOCTYPE html>"
+                                  (sxml:sxml->html
+                                   (apply create-page/title elements)))))]))
 
 (define (container/ . children)
   `(div (@ (class "container"))

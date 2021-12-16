@@ -124,9 +124,7 @@
        (^[await]
          (let-params req ([id "p:1"]
                           [session-id "p:2"])
-                     (let-values (((title rendered)
-                                   (play-game! await id session-id)))
-                       (ok req title rendered)))))))
+                     (ok* req (play-game! await id session-id)))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/do\/(\d+)$/
     (^[req app]
@@ -146,10 +144,8 @@
          (let-params req ([id         "p:1"]
                           [session-id "p:2"]
                           [dialog-id  "p:3"])
-                     (let-values (((title rendered)
-                                   (play-game/dialog! await id session-id
-                                                      dialog-id)))
-                       (ok req title rendered)))))))
+                     (ok* req (play-game/dialog! await id session-id dialog-id))
+                     )))))
 
   (let ((conn (dbi-connect "dbi:sqlite3:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)

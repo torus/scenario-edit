@@ -58,7 +58,7 @@
                      ,content))))))
 
 (define (play-game! await data-id session-id)
-  (values
+  (cons
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if session
@@ -203,7 +203,7 @@
           "Dialog not found."))
     )
 
-  (values
+  (cons
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if (not session)
