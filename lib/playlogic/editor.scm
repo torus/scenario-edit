@@ -547,7 +547,7 @@
       ("options" .
        ,(with-query-result/tree
          await
-         '("SELECT option_id, text, ord FROM options"
+         '("SELECT option_id, text FROM options"
            " WHERE line_id = ? ORDER BY ord")
          `(,line-id)
          (^[rset]
@@ -558,10 +558,8 @@
 
 (define (read-option-from-db await row)
   (let ((option-id (vector-ref row 0))
-        (text (vector-ref row 1))
-        (ord (vector-ref row 2)))
+        (text (vector-ref row 1)))
     `(("text" . ,text)
-      ("ord" . ,ord)
       ("flags-required" .
        ,(with-query-result/tree
          await
