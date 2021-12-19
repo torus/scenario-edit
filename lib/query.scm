@@ -1,7 +1,7 @@
 (define-module query
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite3" :relative)
-  (use dbd.sqlite3)
+  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
+  (use dbd.sqlite)
 
   (export build-query
    ))

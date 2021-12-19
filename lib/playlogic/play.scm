@@ -4,8 +4,8 @@
   (use rfc.json)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite3" :relative)
-  (use dbd.sqlite3)
+  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
+  (use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use json-match)

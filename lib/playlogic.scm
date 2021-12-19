@@ -3,8 +3,8 @@
   (use makiki)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite3" :relative)
-  (use dbd.sqlite3)
+  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
+  (use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use playlogic.editor)
@@ -147,7 +147,7 @@
                      (ok* req (play-game/dialog! await id session-id dialog-id))
                      )))))
 
-  (let ((conn (dbi-connect "dbi:sqlite3:scenario-sqlite3.db")))
+  (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
     (print "Sqlite connected")
     (flush)))

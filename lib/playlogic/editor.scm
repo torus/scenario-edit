@@ -10,11 +10,12 @@
   (use makiki)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite3" :relative)
-  (use dbd.sqlite3)
+  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
+  (use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use json-match)
+  (use query)
 
   (export *sqlite-conn*
           read-and-render-scenario-file
@@ -938,6 +939,10 @@
 (define (with-query-result/tree await tree args proc)
   (with-query-result await (tree->string tree) args proc))
 
+(define (with-query-result/tree* await tree args proc)
+  (let ((query-str (tree->string (build-query *sqlite-conn* tree))))
+    (with-query-result await query-str args proc)))
+
 (define (execute-query str args)
   (guard (e [else (report-error e)])
          (apply dbi-do *sqlite-conn* str '() args)))
@@ -951,23 +956,33 @@
           (text (cdr (assoc "text" line)))
           (options (let1 opt (assoc "options" line)
                          (if opt (cdr opt) ()))))
-      (execute-query-tree '("INSERT INTO lines (dialog_id, ord, character, text)"
-                            " VALUES (?, ?, ?, ?)")
-                          dialog-id line-order character text)
-      (let ((line-id (sqlite3-last-id *sqlite-conn*))
-            (option-order 0))
-        (add-line-details line-id option-order line options))
-      (+ line-order 1024)
+      (with-query-result/tree
+       await
+       '("INSERT INTO lines (dialog_id, ord, character, text)"
+         " VALUES (?, ?, ?, ?)"
+         "; SELECT last_insert_rowid()")
+       (list dialog-id line-order character text)
+       (^[rset]
+         (let ((line-id (vector-ref (car (relation-rows rset)) 0))
+               (option-order 0))
+           (add-line-details line-id option-order line options))
+         (+ line-order 1024)
+         ))
       ))
 
   (define (add-line-details line-id option-order line options)
     (for-each
      (^[option]
-       (execute-query-tree '("INSERT INTO options (line_id, ord, text)"
-                             " VALUES (?, ?, ?)")
-                           line-id option-order (cdr (assoc "text" option)))
-       (let ((option-id (sqlite3-last-id *sqlite-conn*)))
-         (add-option-details option-id option))
+       (with-query-result/tree*
+        await
+        '(INSERT INTO "options" ("line_id" |,| "ord" |,| "text")
+                 VALUES (? |,| ? |,| ?)
+                 |;| SELECT last_insert_rowid())
+        (list line-id option-order (cdr (assoc "text" option)))
+        (^[rset]
+          (let ((option-id (vector-ref (car (relation-rows rset)) 0)))
+            (add-option-details option-id option))
+          ))
        (set! option-order (+ option-order 1024)))
      options))
 
@@ -988,21 +1003,21 @@
   (define (add-dialog-flags dialog-id flags-req flags-exc flags-set)
     (for-each
      (^[flag]
-      (execute-query-tree '("INSERT INTO flags_required (dialog_id, flag)"
-                            " VALUES (?, ?)")
-                          dialog-id flag))
+       (execute-query-tree '("INSERT INTO flags_required (dialog_id, flag)"
+                             " VALUES (?, ?)")
+                           dialog-id flag))
      flags-req)
     (for-each
      (^[flag]
-      (execute-query-tree '("INSERT INTO flags_exclusive (dialog_id, flag)"
-                            " VALUES (?, ?)")
-                          dialog-id flag))
+       (execute-query-tree '("INSERT INTO flags_exclusive (dialog_id, flag)"
+                             " VALUES (?, ?)")
+                           dialog-id flag))
      flags-exc)
     (for-each
      (^[flag]
-      (execute-query-tree '("INSERT INTO flags_set (dialog_id, flag)"
-                            " VALUES (?, ?)")
-                          dialog-id flag))
+       (execute-query-tree '("INSERT INTO flags_set (dialog_id, flag)"
+                             " VALUES (?, ?)")
+                           dialog-id flag))
      flags-set))
 
   (define (add-portal dialog-id destination)
@@ -1018,20 +1033,23 @@
         (flags-req (cdr (or (assoc "flags-required" dialog) (cons 'x #()))))
         (flags-exc (cdr (or (assoc "flags-exclusive" dialog) (cons 'x #()))))
         (flags-set (cdr (or (assoc "flags-set" dialog) (cons 'x #())))))
-    (execute-query-tree '("INSERT INTO dialogs"
-                          " (scenario_id, ord, label, location, type, trigger)"
-                          " VALUES (?, ?, ?, ?, ?, ?)")
-                        id dialog-order label location type trigger)
-    (let ((dialog-id (sqlite3-last-id *sqlite-conn*))
-          (line-order 0))
-      (add-dialog-flags dialog-id flags-req flags-exc flags-set)
-      (when (string=? type "portal")
-        (let ((portal-destination (cdr (assoc "portal-destination" dialog))))
-          (add-portal dialog-id portal-destination)))
-      (for-each (^[line]
-                  (set! line-order (add-line line dialog-id line-order)))
-                lines))
-    ))
+    (with-query-result/tree*
+     await '(INSERT INTO "dialogs"
+                    ("scenario_id" |,| "ord" |,| "label"
+                     |,| "location" |,| "type" |,| "trigger")
+                    VALUES (? |,| ? |,| ? |,| ? |,| ? |,| ?)
+                    |;| SELECT last_insert_rowid())
+     (list id dialog-order label location type trigger)
+     (^[rset]
+       (let ((dialog-id (vector-ref (car (relation-rows rset)) 0))
+             (line-order 0))
+         (add-dialog-flags dialog-id flags-req flags-exc flags-set)
+         (when (string=? type "portal")
+           (let ((portal-destination (cdr (assoc "portal-destination" dialog))))
+             (add-portal dialog-id portal-destination)))
+         (for-each (^[line]
+                     (set! line-order (add-line line dialog-id line-order)))
+                   lines))))))
 
 (define (convert-scenario-file-to-relations await id)
   (execute-query-tree '("BEGIN TRANSACTION"))

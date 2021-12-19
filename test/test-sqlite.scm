@@ -1,12 +1,13 @@
 (use gauche.test)
 (use text.tree)
+(use util.relation)
 
 (test-start "SQLite")
 
 (use gauche.collection)
 (use dbi)
-(add-load-path "../gosh-modules/dbd-sqlite3" :relative)
-(use dbd.sqlite3)
+(add-load-path "../gosh-modules/dbd-sqlite" :relative)
+(use dbd.sqlite)
 
 
 (define (assert-equal a b)
@@ -20,18 +21,18 @@
 (define (id x) x)
 (define (fail x) 'fail)
 
-(test-section "dbd-sqlite3")
+(test-section "dbd-sqlite")
 
 (test-behavior "simple query"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     '(#(1234))
                     (map id (dbi-do conn "SELECT 1234"))))))
 
 (test-behavior "simple query 2"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     '(#(1234 5678))
                    (map id (dbi-do conn "SELECT ?, ?" () 1234 5678))))))
@@ -65,7 +66,7 @@
 
 (test-behavior "simple SELECT"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     '("SELECT" " " "\"dialog_id\"" " " "FROM" " " "\"dialogs\"")
                     (build-query conn '(SELECT "dialog_id" FROM "dialogs"))
@@ -74,7 +75,7 @@
 
 (test-behavior "subquery"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     "(SELECT \"dialog_id\" FROM \"dialogs\")"
                     (tree->string
@@ -87,7 +88,7 @@
 
 (test-behavior "SELECT with a subquery"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     (intersperse
                      " " `("SELECT" ,(q "d") "." ,(q "dialog_id")
@@ -111,9 +112,36 @@
 
 (test-behavior "empty list"
                (^[]
-                 (let ((conn (dbi-connect "dbi:sqlite3:dummy.db")))
+                 (let ((conn (dbi-connect "dbi:sqlite:dummy.db")))
                    (assert-equal
                     '(("(" ")"))
                     (build-query conn '(()))
                     ))
                  ))
+
+
+(test-behavior "last_insert_rowid"
+               (^[]
+                 (let* ((conn (dbi-connect "dbi:sqlite:dummy.db"))
+                        (_ (dbi-do conn
+                                   (tree->string
+                                    (build-query
+                                     conn
+                                     '(CREATE TABLE IF NOT EXISTS "lines"
+                                              (id INTEGER PRIMARY KEY
+                                                  |,| text TEXT))
+                                     ))))
+                        (query (tree->string
+                           (build-query
+                            conn
+                            '(INSERT INTO "lines" ("text") VALUES (?)
+                                     |;| SELECT last_insert_rowid()))))
+                        (rset
+                         (dbi-do
+                          conn
+                          query
+                          ()
+                          "hello")))
+                   (let ((line-id (vector-ref (car
+                                               (relation-rows rset)) 0)))
+                     (assert-equal #t (number? line-id))))))
