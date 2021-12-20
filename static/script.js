@@ -135,3 +135,9 @@ function setup_form(form) {
 const form = document.querySelector('#edit-form')
 if (form)
     setup_form(form)
+
+if (/\/play\/\d+$/.test(location.href)) {
+    const link = document.querySelector('a[trigger="#description"]')
+    console.log(link)
+    link.click()
+}

@@ -6,6 +6,7 @@ services:
       - .:/code
       - ../Ukiyo/Dev/Dialogues/json:/code/json
       - ../Ukiyo/Dev/Dialogues:/code/csv
+      - ../Ukiyo/Dev/Dialogues/images:/code/static/gameassets
     ports:
       - "2227:2222"
     expose:

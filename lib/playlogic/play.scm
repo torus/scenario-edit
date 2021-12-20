@@ -43,6 +43,9 @@
                 ("flags" . #()))))
 
 (define (render-page await data-id session-id session . content)
+  (define (image-url loc)
+    #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
+
   (let ((loc (json-query session '("location"))))
     `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
            (ul
@@ -52,9 +55,13 @@
            (h2 (@ (class "title is-2")) ,loc)
            (div (@ (class "columns"))
                 (div (@ (class "column is-3"))
-                     ,(show-game-state await data-id session-id session)
-                     )
+                     ,(show-game-state await data-id session-id session))
                 (div (@ (class "column"))
+                     (div (@ (class "columns"))
+                          (div (@ (class "column")) "")
+                          (div (@ (class "column is-9"))
+                               (img (@ (src ,(image-url loc)))))
+                          (div (@ (class "column")) ""))
                      ,content))))))
 
 (define (play-game! await data-id session-id)
@@ -72,8 +79,6 @@
   (define (get name)
     (cdr (assoc name conv)))
 
-
-
   (let ((label     (get "label"))
         (lines     (get "lines"))
         (loc       (get "location"))
@@ -84,39 +89,32 @@
         (flags-exc (get "flags-exclusive"))
         (flags-set (get "flags-set")))
 
-    `(
-                   (div (@ (class "columns is-vcentered"))
-                        #;(div (@ (class "column is-2"))
-                             (span (@ (class "tag is-info"))
-                                   ,type))
-                        (div (@ (class "column is-6"))
-                             (h4 (@ (class "title is-4")) ,label))
-                        (div (@ (class "column"))
-                             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                                   ,loc)
-                                ,(fas-icon "caret-right") ,trigger))
-                        (div (@ (class "column is-1"))
-                             (p (@ (class "has-text-grey"))
-                                "0x" ,(number->string ord 16))))
-                   (div (@ (class "columns"))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                    flags-req)))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-danger")) ,f))
-                                   flags-exc)))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-info")) ,f))
-                                   flags-set))))
+    `((div (@ (class "columns is-vcentered"))
+           (div (@ (class "column is-6"))
+                (h4 (@ (class "title is-4")) ,label))
+           (div (@ (class "column"))
+                (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                      ,loc)
+                   ,(fas-icon "caret-right") ,trigger)))
+      (div (@ (class "columns"))
+           (div (@ (class "column is-one-third"))
+                ,(intersperse
+                  " "
+                  (map (^f `(span (@ (class "tag is-primary")) ,f))
+                       flags-req)))
+           (div (@ (class "column is-one-third"))
+                ,(intersperse
+                  " "
+                  (map (^f `(span (@ (class "tag is-danger")) ,f))
+                       flags-exc)))
+           (div (@ (class "column is-one-third"))
+                ,(intersperse
+                  " "
+                  (map (^f `(span (@ (class "tag is-info")) ,f))
+                       flags-set))))
 
-                   ,@(render-lines await data-id session-id lines))
-))
+      ,@(render-lines await data-id session-id lines))
+    ))
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
@@ -265,7 +263,8 @@
   (define (show-inspection dialog-id trigger)
     `(li
       (a (@ (href
-             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
+            (trigger ,trigger))
          ,(fas-icon "search") ,#" ~trigger")))
 
   (define (show-conversation dialog-id trigger)
