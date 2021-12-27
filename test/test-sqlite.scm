@@ -9,17 +9,7 @@
 (add-load-path "../gosh-modules/dbd-sqlite" :relative)
 (use dbd.sqlite)
 
-
-(define (assert-equal a b)
-  (test* "equality check" a b))
-
-(define (test-behavior comment proc)
-  (test-section comment)
-  (proc)
-  )
-
-(define (id x) x)
-(define (fail x) 'fail)
+(load "./testlib/test-utils")
 
 (test-section "dbd-sqlite")
 
