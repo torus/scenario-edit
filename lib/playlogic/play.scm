@@ -260,18 +260,12 @@
               ,(fas-icon "walking")
               ,#" ~new-location"))))
 
-  (define (show-inspection dialog-id trigger)
+  (define (show-option dialog-id trigger icon)
     `(li
       (a (@ (href
              ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
             (trigger ,trigger))
-         ,(fas-icon "search") ,#" ~trigger")))
-
-  (define (show-conversation dialog-id trigger)
-    `(li
-      (a (@ (href
-             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
-         ,(fas-icon "comment") ,#" ~trigger")))
+         ,(fas-icon icon) ,#" ~trigger")))
 
   (define (query loc flags)
     (build-query
@@ -315,10 +309,13 @@
                                ((portal)
                                 (show-portal dialog-id trigger))
                                ((inspection)
-                                (show-inspection dialog-id trigger))
+                                (show-option dialog-id trigger "search"))
                                ((conversation)
-                                (show-conversation dialog-id trigger))
-                               (else #"~trigger ~type"))
+                                (show-option dialog-id trigger "comment"))
+                               ((area)
+                                (show-option dialog-id trigger "sign-in-alt"))
+                               (else
+                                (show-option dialog-id trigger "question")))
                              ))))
                       rset))
                (p (@ (class "menu-label")) "Flags")
