@@ -42,7 +42,7 @@
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
-(define (render-page await data-id session-id session . content)
+(define (render-page await data-id session-id session cur-dialog-id . content)
   (define (image-url loc)
     #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
 
@@ -55,7 +55,8 @@
            (h2 (@ (class "title is-2")) ,loc)
            (div (@ (class "columns"))
                 (div (@ (class "column is-3"))
-                     ,(show-game-state await data-id session-id session))
+                     ,(show-game-state await data-id session-id session
+                                       cur-dialog-id))
                 (div (@ (class "column"))
                      (div (@ (class "columns"))
                           (div (@ (class "column")) "")
@@ -69,10 +70,10 @@
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if session
-         (render-page await data-id session-id session)
+         (render-page await data-id session-id session #f)
          (let ((new-session (make-session await data-id)))
            (hash-table-put! *session-table* (x->string session-id) new-session)
-           (render-page await data-id session-id new-session)))
+           (render-page await data-id session-id new-session #f)))
      )))
 
 (define (render-dialog await conv data-id session-id)
@@ -213,7 +214,7 @@
            (assoc-set! session "flags"
                        (coerce-to <vector>
                                   (set-union flags (get-new-flags))))
-           (render-page await data-id session-id session (content)))))))
+           (render-page await data-id session-id session dialog-id (content)))))))
 
 (define (cont-table-add proc)
   (inc! *cont-id*)
@@ -246,7 +247,7 @@
         (read-dialog-detail-from-db await row))
       rset))))
 
-(define (show-game-state await data-id session-id session)
+(define (show-game-state await data-id session-id session cur-dialog-id)
   (define (show-portal dialog-id trigger)
     (let* ((new-location (get-location-for-portal
                           await dialog-id))
@@ -258,12 +259,15 @@
                 (assoc-set! session "location" new-location))))))
       `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
               ,(fas-icon "walking")
-              ,#" ~new-location"))))
+              ,#" ~new-location へ"))))
 
   (define (show-option dialog-id trigger icon)
     `(li
       (a (@ (href
              ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
+            ,@(if (string=? (x->string dialog-id) (x->string cur-dialog-id))
+                  `((class "is-active"))
+                  ())
             (trigger ,trigger))
          ,(fas-icon icon) ,#" ~trigger")))
 
@@ -286,7 +290,8 @@
               ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
               WHERE "d" |.| "location" = ,loc
               AND "fr" |.| "flag" IS NULL
-              AND "fe" |.| "flag" IS NULL)))
+              AND "fe" |.| "flag" IS NULL
+              ORDER BY "type")))
 
   (define (show-options loc flags)
     (with-query-result/tree

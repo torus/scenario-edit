@@ -140,4 +140,9 @@ if (/\/play\/\d+$/.test(location.href)) {
     const link = document.querySelector('a[trigger="#description"]')
     console.log(link)
     link.click()
+} else {
+    const link = document.querySelector('a[trigger="#description"]')
+    link.innerHTML =
+        '<span class="icon"><i class="fas fa-lightbulb"></i></span>'
+        + '場所の悦明'
 }
