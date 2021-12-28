@@ -452,19 +452,26 @@
 (define (read-scenario-file await id)
   (await (^[] (with-input-from-file (json-file-path id) parse-json))))
 
-(define (read-scenario-from-db await id)
-  (with-query-result/tree
-   await
-   '("SELECT dialog_id, label, location, type, ord, trigger"
-     " FROM dialogs"
-     " WHERE scenario_id = ?"
-     " ORDER BY ord")
-   `(,id)
-   (^[rset]
-     (map-to <vector>
-      (^[row]
-        (read-dialog-detail-from-db await row))
-      rset))))
+(define (read-scenario-from-db await id . additional-filter)
+  (let ((query (build-query
+                *sqlite-conn*
+                `(SELECT "dialog_id" |,| "label" |,| "location"
+                         |,| "type" |,| "ord" |,| "trigger"
+                         FROM "dialogs"
+                         WHERE "scenario_id" = ?
+                         ,@(if (pair? additional-filter)
+                               `(AND ,additional-filter)
+                               ())
+                         ORDER BY "ord"))))
+    (with-query-result/tree
+     await
+     query
+     `(,id)
+     (^[rset]
+       (map-to <vector>
+               (^[row]
+                 (read-dialog-detail-from-db await row))
+               rset)))))
 
 (define (read-dialog-detail-from-db await row)
   (let ((dialog-id (vector-ref row 0))
@@ -905,7 +912,7 @@
 (define (render-location await id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
-  (let ((content (read-scenario-from-db await id)))
+  (let ((content (read-scenario-from-db await id "location" '= loc)))
     `(div (@ (class "container"))
           ((p (a (@ (href ,#"/scenarios/~id"))
                  ,(fas-icon "chevron-left")
@@ -921,10 +928,7 @@
                                          ,(get "type" conv)))
                                (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
                                       ,label)))))
-                         (filter
-                          (^[conv]
-                            (string=? loc (get "location" conv)))
-                          content))))))))
+                         content)))))))
 
 ;; SQLite
 
