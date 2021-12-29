@@ -25,6 +25,7 @@
           update-with-json
           delete-existing-dialogs
           render-location
+          render-location-list
           create-tables
           convert-scenario-file-to-relations
           scenario-page-header
@@ -46,9 +47,6 @@
 ;;
 
 (define *session-id* 0)
-
-(define (create-page . children)
-  (apply create-page/title "Scenario Edit" children))
 
 (define (create-page/title title . children)
   (inc! *session-id*)
@@ -668,7 +666,10 @@
        " "
        (a (@ (class "button is-primary")
              (href ,#`"/scenarios/,|id|/play/,*session-id*"))
-          ,(fas-icon "gamepad") (span "Play!")))))
+          ,(fas-icon "gamepad") (span "Play!")))
+   `(p (a (@ (class "")
+             (href ,#`"/scenarios/,|id|/locations"))
+          (span "Locations")))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]
@@ -909,12 +910,12 @@
 
           )))))
 
-(define (render-location await id loc)
+(define (render-location await data-id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
-  (let ((content (read-scenario-from-db await id "location" '= loc)))
+  (let ((content (read-scenario-from-db await data-id "location" '= loc)))
     `(div (@ (class "container"))
-          ((p (a (@ (href ,#"/scenarios/~id"))
+          ((p (a (@ (href ,#"/scenarios/~data-id"))
                  ,(fas-icon "chevron-left")
                  "戻る"))
            (div (@ (class "block"))
@@ -926,9 +927,32 @@
                              `(tr
                                (td (span (@ (class "tag is-info"))
                                          ,(get "type" conv)))
-                               (td (a (@ (href ,#"/scenarios/~|id|#label-~label"))
+                               (td (a (@ (href
+                                          ,#"/scenarios/~|data-id|#label-~label"))
                                       ,label)))))
                          content)))))))
+
+(define (render-location-list await data-id)
+  (let* ((query
+          (build-query *sqlite-conn*
+                       `(SELECT DISTINCT "location"
+                                FROM "dialogs"
+                                WHERE "scenario_id" = ,data-id
+                                ORDER BY "location")))
+         (locs (with-query-result/tree
+                await query ()
+                (^[rset]
+                  (map (cut vector-ref <> 0) rset)))))
+    (container/
+     `(div (@ (class "columns"))
+           (div (@ (class "column"))
+                (h2 (@ (class "title")) "Locations")
+                (ul
+                 ,@(map
+                    (^[loc]
+                      `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                              ,loc)))
+                    locs)))))))
 
 ;; SQLite
 

@@ -100,7 +100,19 @@
        (^[await]
          (let-params req ([id "p:1"] [loc "p:2"])
                      (let ((rendered (render-location await id loc)))
-                       (ok req #"場所：~loc" rendered)))))))
+                       (ok req #"場所：~loc"
+                           (scenario-page-header await id)
+                           rendered)))))))
+
+  (define-http-handler #/^\/scenarios\/(\d+)\/locations$/
+    (^[req app]
+      (violet-async
+       (^[await]
+         (let-params req ([id "p:1"])
+                     (let ((rendered (render-location-list await id)))
+                       (ok req "場所"
+                           (scenario-page-header await id)
+                           rendered)))))))
 
   (define-http-handler #/^\/static\// (file-handler))
 
