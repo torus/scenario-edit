@@ -44,7 +44,9 @@
                           [ord "p:2" :convert (cut string->number <> 16)])
                      (let ((rendered
                             (read-and-render-scenario-file/insert await id ord)))
-                       (ok req "会話を追加" rendered)))))))
+                       (ok req "会話を追加"
+                           (scenario-page-header await id)
+                           rendered)))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/edit\/(.*)/
     (^[req app]
@@ -54,7 +56,9 @@
                           [label "p:2"])
                      (let ((rendered
                             (read-and-render-scenario-file/edit await id label)))
-                       (ok req "会話を編集" rendered)))))))
+                       (ok req "会話を編集"
+                           (scenario-page-header await id)
+                           rendered)))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
     (^[req app]
