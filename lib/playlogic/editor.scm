@@ -41,7 +41,7 @@
 
           ;; query
           with-query-result/tree
-   ))
+          ))
 
 (select-module playlogic.editor)
 
@@ -111,11 +111,11 @@
                                  (cdr (safe-assoc-vec "flags-required" o))))
          " "
          ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
-            (if (> (vector-length jump) 0)
-                `((span (@ (class "tag is-info"))
-                        ,(fas-icon "arrow-circle-right") " "
-                        ,(vector-ref jump 0)))
-                ()))
+             (if (> (vector-length jump) 0)
+                 `((span (@ (class "tag is-info"))
+                         ,(fas-icon "arrow-circle-right") " "
+                         ,(vector-ref jump 0)))
+                 ()))
          ))
 
   `(div (@ (class "columns"))
@@ -176,7 +176,7 @@
                       (let ((loc (vector-ref row 0)))
                         `(,(fas-icon "map-marker-alt")
                           (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                            ,loc))))
+                             ,loc))))
                     rset))))))
 
   (let ((label     (get "label"))
@@ -250,30 +250,30 @@
                  (or (get key option) #())))))
 
   `(div (@ (class "option-input-group"))
-    (div (@ (class "columns is-vcentered"))
-         (div (@ (class "column is-one-fifth has-text-right"))
-              ,(fas-icon "angle-right"))
-         (div (@ (class "column"))
-              (input (@ (class "input option-input") (type "text")
-                        (placeholder "選択肢")
-                        (value ,(or (get "text" option) ""))))))
+        (div (@ (class "columns is-vcentered"))
+             (div (@ (class "column is-one-fifth has-text-right"))
+                  ,(fas-icon "angle-right"))
+             (div (@ (class "column"))
+                  (input (@ (class "input option-input") (type "text")
+                            (placeholder "選択肢")
+                            (value ,(or (get "text" option) ""))))))
 
-    (div (@ (class "columns is-vcentered"))
-         (div (@ (class "column is-one-quarter has-text-right"))
-              ,(fas-icon "angle-right"))
-         (div (@ (class "column"))
-              (p (span (@ (class "tag is-primary"))
-                       "要求フラグ"))
-              (input (@ (class "input option-flags-req-input") (type "text")
-                        (placeholder "フラグ1 フラグ2 ...")
-                        (value ,(flags "flags-required")))))
-         (div (@ (class "column"))
-              (p (span (@ (class "tag is-warning"))
-                       "ジャンプ先"))
-              (input (@ (class "input option-jump-input") (type "text")
-                        (placeholder "会話 ID")
-                        (value ,(flags "jump-to"))))))
-    ))
+        (div (@ (class "columns is-vcentered"))
+             (div (@ (class "column is-one-quarter has-text-right"))
+                  ,(fas-icon "angle-right"))
+             (div (@ (class "column"))
+                  (p (span (@ (class "tag is-primary"))
+                           "要求フラグ"))
+                  (input (@ (class "input option-flags-req-input") (type "text")
+                            (placeholder "フラグ1 フラグ2 ...")
+                            (value ,(flags "flags-required")))))
+             (div (@ (class "column"))
+                  (p (span (@ (class "tag is-warning"))
+                           "ジャンプ先"))
+                  (input (@ (class "input option-jump-input") (type "text")
+                            (placeholder "会話 ID")
+                            (value ,(flags "jump-to"))))))
+        ))
 
 (define (render-line-form char text options)
   `((div (@ (class "line-form"))
@@ -341,31 +341,31 @@
 
     `(div
       (div (@ (class "columns"))
-          (div (@ (class "column is-2"))
-               ,(form-field
-                 "タイプ" #f
-                 `(div (@ (class "select"))
-                       ,(type-selector))))
-          (div (@ (class "column is-one-third"))
-               ,(form-field "ラベル"
-                            "他の会話とラベルが重複しないようにしてください。"
-                            `(input (@ (class "input")
-                                       (id "label-input")
-                                       (type "text")
-                                       (placeholder "会話 ID")
-                                       (value ,label)))))
-          (div (@ (class "column"))
-               ,(form-field "場所" #f
-                            `(input (@ (class "input") (type "text")
-                                       (id "location-input")
-                                       (placeholder "場所")
-                                       (value ,(get "location" ""))))))
-          (div (@ (class "column"))
-               ,(form-field "トリガー" #f
-                            `(input (@ (class "input") (type "text")
-                                       (id "trigger-input")
-                                       (placeholder "トリガー")
-                                       (value ,(get "trigger" "")))))))
+           (div (@ (class "column is-2"))
+                ,(form-field
+                  "タイプ" #f
+                  `(div (@ (class "select"))
+                        ,(type-selector))))
+           (div (@ (class "column is-one-third"))
+                ,(form-field "ラベル"
+                             "他の会話とラベルが重複しないようにしてください。"
+                             `(input (@ (class "input")
+                                        (id "label-input")
+                                        (type "text")
+                                        (placeholder "会話 ID")
+                                        (value ,label)))))
+           (div (@ (class "column"))
+                ,(form-field "場所" #f
+                             `(input (@ (class "input") (type "text")
+                                        (id "location-input")
+                                        (placeholder "場所")
+                                        (value ,(get "location" ""))))))
+           (div (@ (class "column"))
+                ,(form-field "トリガー" #f
+                             `(input (@ (class "input") (type "text")
+                                        (id "trigger-input")
+                                        (placeholder "トリガー")
+                                        (value ,(get "trigger" "")))))))
 
       (div (@ (class "columns is-vcentered"))
            (div (@ (class "column is-one-third"))
@@ -429,12 +429,12 @@
 
   (define (add-line-button)
     `(div (@ (class "columns"))
-         (div (@ (class "column"))
-              (div (@ (class "field has-text-centered"))
-                   (a (@ (class "button")
-                         (id "add-line-button"))
-                      ,(fas-icon "comment")
-                      (span (@ (style "margin-left: 0.5ex"))"セリフを追加"))))))
+          (div (@ (class "column"))
+               (div (@ (class "field has-text-centered"))
+                    (a (@ (class "button")
+                          (id "add-line-button"))
+                       ,(fas-icon "comment")
+                       (span (@ (style "margin-left: 0.5ex"))"セリフを追加"))))))
 
   `(section
     (@ (class "section")
@@ -621,12 +621,12 @@
            content))
   (let ((content (read-scenario-from-db await id)))
     (if (zero? (vector-length content))
-	`(,(add-dialog-button id #f 1024))
-	(let-values (((convs prev-conv)
+        `(,(add-dialog-button id #f 1024))
+        (let-values (((convs prev-conv)
                       (elems content)))
-	  `(,@(reverse convs)
+          `(,@(reverse convs)
             ,(add-dialog-button id (label-of prev-conv)
-				(+ 1024 (ord-of prev-conv))))))
+                                (+ 1024 (ord-of prev-conv))))))
     ))
 
 (define (json-file-path data-id)
@@ -659,20 +659,20 @@
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
     (render-dialog-form conv id
-                              `(input (@ (id "original-label-input")
-                                         (type "hidden")
-                                         (value ,label)))))
+                        `(input (@ (id "original-label-input")
+                                   (type "hidden")
+                                   (value ,label)))))
 
   (let ((content (read-scenario-from-db await id)))
-          (reverse
-           (fold (^[conv rest]
-                   (let ((label (cdr (assoc "label" conv))))
-                     (cons (if (string=? label label-to-edit)
-                               (new-form conv label)
-                               (render-dialog await conv id))
-                           rest)))
-                 ()
-                 content))))
+    (reverse
+     (fold (^[conv rest]
+             (let ((label (cdr (assoc "label" conv))))
+               (cons (if (string=? label label-to-edit)
+                         (new-form conv label)
+                         (render-dialog await conv id))
+                     rest)))
+           ()
+           content))))
 
 (define (navbar/ await data-id . content)
   `(navbar (@ (class "navbar is-fixed-top is-light")
@@ -876,16 +876,16 @@
           (jump-to   (cdr (safe-assoc-vec "jump-to"         option))))
       (let ((opt-label #"~|label|_~|num|_~|optnum|")
             (flags-req-len (vector-length flags-req)))
-      (w-option
-       `(,opt-label
-         ,(cdr (assoc "text" option))
-         ,(x->string flags-req-len)
-         ,(if (> (vector-length jump-to) 0)
-              (ref jump-to 0)
-              "")))
-      (vector-for-each-with-index
-       (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
-       flags-req))))
+        (w-option
+         `(,opt-label
+           ,(cdr (assoc "text" option))
+           ,(x->string flags-req-len)
+           ,(if (> (vector-length jump-to) 0)
+                (ref jump-to 0)
+                "")))
+        (vector-for-each-with-index
+         (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
+         flags-req))))
 
   (w-dialog  '("" "type" "location" "trigger" "count" "flagcount"))
   (w-option  '("" "option" "flagcount" "jump"))
@@ -911,19 +911,19 @@
               (hash-table-put! trigger-table key (+ index 1))))
           ((% "flags-required"
               (@
-                (^d
-                 (w-flag `(,#"~|label|_~|flagcount|" "required" ,d))
-                 (inc! flagcount)))) d)
+               (^d
+                (w-flag `(,#"~|label|_~|flagcount|" "required" ,d))
+                (inc! flagcount)))) d)
           ((% "flags-exclusive"
               (@
-                (^d
-                 (w-flag `(,#"~|label|_~|flagcount|" "exclusive" ,d))
-                 (inc! flagcount)))) d)
+               (^d
+                (w-flag `(,#"~|label|_~|flagcount|" "exclusive" ,d))
+                (inc! flagcount)))) d)
           ((% "flags-set"
               (@
-                (^d
-                 (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
-                 (inc! flagcount)))) d)
+               (^d
+                (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
+                (inc! flagcount)))) d)
 
           (w-dialog `(,label ,type ,location ,trigger
                              ,(x->string linecount) ,(x->string flagcount)))
@@ -953,8 +953,8 @@
            d)
 
           ((% "portal-destination"
-             (^d
-              (w-portal `(,label ,d)))) d)
+              (^d
+               (w-portal `(,label ,d)))) d)
 
           )))))
 
