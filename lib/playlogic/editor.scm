@@ -24,6 +24,8 @@
           convert-json-to-csv
           update-with-json
           delete-existing-dialogs
+          navbar/
+          container/
           render-location
           render-location-list
           create-tables
@@ -164,46 +166,46 @@
         (flags-exc (get "flags-exclusive"))
         (flags-set (get "flags-set")))
     `(section (@ (class "section") (id ,#"label-~label"))
-              (div (@ (class "container"))
-                   (div (@ (class "columns is-vcentered"))
-                        ,@additioanl-elements
-                        (div (@ (class "column is-2"))
-                             (span (@ (class "tag is-info"))
-                                   ,type))
-                        (div (@ (class "column is-one-third"))
-                             (h4 (@ (class "title is-4")) ,label))
-                        (div (@ (class "column"))
-                             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                                   ,loc)
-                                ,(fas-icon "caret-right") ,trigger))
-                        (div (@ (class "column is-1"))
-                             (p (@ (class "has-text-grey"))
-                                "0x" ,(number->string ord 16))))
-                   (div (@ (class "columns"))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                    flags-req)))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-danger")) ,f))
-                                   flags-exc)))
-                        (div (@ (class "column is-one-third"))
-                             ,(intersperse
-                               " "
-                               (map (^f `(span (@ (class "tag is-info")) ,f))
-                                   flags-set))))
+              ,(container/
+                `(div (@ (class "columns is-vcentered"))
+                      ,@additioanl-elements
+                      (div (@ (class "column is-2"))
+                           (span (@ (class "tag is-info"))
+                                 ,type))
+                      (div (@ (class "column is-one-third"))
+                           (h4 (@ (class "title is-4")) ,label))
+                      (div (@ (class "column"))
+                           (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                                 ,loc)
+                              ,(fas-icon "caret-right") ,trigger))
+                      (div (@ (class "column is-1"))
+                           (p (@ (class "has-text-grey"))
+                              "0x" ,(number->string ord 16))))
+                `(div (@ (class "columns"))
+                      (div (@ (class "column is-one-third"))
+                           ,(intersperse
+                             " "
+                             (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                  flags-req)))
+                      (div (@ (class "column is-one-third"))
+                           ,(intersperse
+                             " "
+                             (map (^f `(span (@ (class "tag is-danger")) ,f))
+                                  flags-exc)))
+                      (div (@ (class "column is-one-third"))
+                           ,(intersperse
+                             " "
+                             (map (^f `(span (@ (class "tag is-info")) ,f))
+                                  flags-set))))
 
-                   ,(if (string=? type "portal")
-                        `(div (@ (class "columns"))
-                              (div (@ (class "column"))
-                                   ,(fas-icon "walking")
-                                   " "
-                                   ,(get "portal-destination")))
-                        ())
-                   ,@(render-lines lines)))))
+                (if (string=? type "portal")
+                     `(div (@ (class "columns"))
+                           (div (@ (class "column"))
+                                ,(fas-icon "walking")
+                                " "
+                                ,(get "portal-destination")))
+                     ())
+                (render-lines lines)))))
 
 (define (render-dialog/edit-button conv data-id)
   (render-dialog conv data-id
@@ -420,17 +422,17 @@
   `(section
     (@ (class "section")
        (id "form"))
-    (div (@ (class "container"))
-         (form (@ (id "edit-form")
-                  (action ,#"/scenarios/~|data-id|/submit/~label")
-                  (method "post"))
-               ,hidden-inputs
-               ,(conv-form)
-               (div (@ (id "line-fields"))
-                    ""
-                    ,@(line-fields lines))
-               ,(add-line-button)
-               ,(buttons)))
+    ,(container/
+      `(form (@ (id "edit-form")
+                (action ,#"/scenarios/~|data-id|/submit/~label")
+                (method "post"))
+             ,hidden-inputs
+             ,(conv-form)
+             (div (@ (id "line-fields"))
+                  ""
+                  ,@(line-fields lines))
+             ,(add-line-button)
+             ,(buttons)))
     (div (@ (style "display: none")
             (id "hidden-field"))
          ,@(render-line-form "" "" ()))
@@ -655,13 +657,13 @@
                  ()
                  content))))
 
-(define (scenario-page-header await id)
+(define (navbar/ await data-id . content)
   `(navbar (@ (class "navbar is-fixed-top is-light")
               (role "navigation")
               (aria-label "main navigation"))
            (div (@ (class "navbar-brand"))
                 (div (@ (class "navbar-item"))
-                     (h1 (@ (class "title is-3")) ,#"Scenario #~id"))
+                     (h1 (@ (class "title is-3")) ,#"Scenario #~data-id"))
                 (a (@ (role "button") (class "navbar-burger")
                       (aria-label "menu") (aria-expanded "false")
                       (data-target "playlogic-navbar"))
@@ -669,32 +671,36 @@
                    (span (@ (aria-hidden "true")) "")
                    (span (@ (aria-hidden "true")) "")))
 
-           (div (@ (id "playlogic-navbar") (class "navbar-menu"))
-                (div (@ (class "navbar-start"))
-                     (a (@ (class "navbar-item")
-                           (href ,#`"/scenarios/,|id|"))
-                        ,(fas-icon "home") (span "Home"))
-                     (a (@ (class "navbar-item")
-                           (href ,#`"/scenarios/,|id|/locations"))
-                        ,(fas-icon "map-signs") (span "Locations"))
-                     (a (@ (class "navbar-item"))
-                        (div (@ (class "buttons"))
-                        (a (@ (class "button is-primary")
-                              (href ,#`"/scenarios/,|id|/play/,*session-id*"))
-                           ,(fas-icon "gamepad") (span "Play"))))
-                     )
+           ,content))
 
-                (div (@ (class "navbar-end"))
-                     (a (@ (class "navbar-item"))
-                        (div (@ (class "buttons"))
-                             (a (@ (class "button")
-                                   (href ,#`"/scenarios/,|id|/update-csv"))
-                                ,(fas-icon "save") (span "Update CSV/JSON"))
-                             (a (@ (class "button is-danger")
-                                   (href ,#`"/scenarios/,|id|/convert"))
-                                ,(fas-icon "skull-crossbones")
-                                (span "Convert from JSON")))
-                        )))))
+(define (scenario-page-header await id)
+  (navbar/
+   await id
+   `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
+         (div (@ (class "navbar-start"))
+              (a (@ (class "navbar-item")
+                    (href ,#`"/scenarios/,|id|"))
+                 ,(fas-icon "home") (span "Home"))
+              (a (@ (class "navbar-item")
+                    (href ,#`"/scenarios/,|id|/locations"))
+                 ,(fas-icon "map-signs") (span "Locations"))
+              (a (@ (class "navbar-item"))
+                 (div (@ (class "buttons"))
+                      (a (@ (class "button is-primary")
+                            (href ,#`"/scenarios/,|id|/play/,*session-id*"))
+                         ,(fas-icon "gamepad") (span "Play")))))
+
+         (div (@ (class "navbar-end"))
+              (a (@ (class "navbar-item"))
+                 (div (@ (class "buttons"))
+                      (a (@ (class "button")
+                            (href ,#`"/scenarios/,|id|/update-csv"))
+                         ,(fas-icon "save") (span "Update CSV/JSON"))
+                      (a (@ (class "button is-danger")
+                            (href ,#`"/scenarios/,|id|/convert"))
+                         ,(fas-icon "skull-crossbones")
+                         (span "Convert from JSON")))
+                 )))))
 
 (define (overwrite-json-file await json filename)
   (await (^[]

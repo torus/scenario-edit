@@ -42,28 +42,35 @@
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
+(define (play-page-header await data-id)
+  (navbar/
+   await data-id
+   `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
+         (div (@ (class "navbar-start"))
+              (a (@ (class "navbar-item")
+                    (href ,#`"/scenarios/,|data-id|"))
+                 ,(fas-icon "home") (span "Back to Editor"))))))
+
 (define (render-page await data-id session-id session cur-dialog-id . content)
   (define (image-url loc)
     #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
 
   (let ((loc (json-query session '("location"))))
-    `((nav (@ (class "breadcrumb") (aria-label "breadcrumbs"))
-           (ul
-            (li (a (@ (href ,#`"/scenarios/,|data-id|"))
-                   ,(fas-icon "home") (span "Back to Editor")))))
-      (div (@ (class "container"))
-           (h2 (@ (class "title is-2")) ,loc)
-           (div (@ (class "columns"))
-                (div (@ (class "column is-3"))
-                     ,(show-game-state await data-id session-id session
-                                       cur-dialog-id))
-                (div (@ (class "column"))
-                     (div (@ (class "columns"))
-                          (div (@ (class "column")) "")
-                          (div (@ (class "column is-9"))
-                               (img (@ (src ,(image-url loc)))))
-                          (div (@ (class "column")) ""))
-                     ,content))))))
+    `(,(play-page-header await data-id)
+      ,(container/
+        `(div (@ (class "columns"))
+              (div (@ (class "column is-3"))
+                   (div (@ (class "box"))
+                        (h2 (@ (class "title is-3")) ,loc))
+                   ,(show-game-state await data-id session-id session
+                                     cur-dialog-id))
+              (div (@ (class "column"))
+                   (div (@ (class "columns"))
+                        (div (@ (class "column")) "")
+                        (div (@ (class "column is-9"))
+                             (img (@ (src ,(image-url loc)))))
+                        (div (@ (class "column")) ""))
+                   ,content))))))
 
 (define (play-game! await data-id session-id)
   (cons
