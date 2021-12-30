@@ -37,6 +37,7 @@
           read-dialog-detail-from-db
 
           fas-icon
+          icon-for-type
 
           ;; query
           with-query-result/tree
@@ -941,6 +942,15 @@
 
           )))))
 
+(define (icon-for-type type)
+  (fas-icon
+   (case (string->symbol type)
+     ((portal)       "walking")
+     ((inspection)   "search")
+     ((conversation) "comment")
+     ((area          "sign-in-alt"))
+     (else           "question"))))
+
 (define (render-location await data-id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
@@ -951,13 +961,27 @@
                 (table (@ (class "table"))
                        ,(map
                          (^[conv]
-                           (let ((label (get "label" conv)))
+                           (let ((label (get "label" conv))
+                                 (flags-req (get "flags-required" conv))
+                                 (flags-exc (get "flags-exclusive" conv))
+                                 (flags-set (get "flags-set" conv))
+                                 (trigger   (get "trigger" conv)))
                              `(tr
-                               (td (span (@ (class "tag is-info"))
-                                         ,(get "type" conv)))
+                               (td ,(icon-for-type (get "type" conv))
+                                   " " ,trigger)
                                (td (a (@ (href
                                           ,#"/scenarios/~|data-id|#label-~label"))
-                                      ,label)))))
+                                      ,label))
+                               (td
+                                ,(intersperse
+                                  " "
+                                  (append
+                                   (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                        flags-req)
+                                   (map (^f `(span (@ (class "tag is-danger")) ,f))
+                                        flags-exc)
+                                   (map (^f `(span (@ (class "tag is-info")) ,f))
+                                        flags-set)))))))
                          content)))))))
 
 (define (render-location-list await data-id)

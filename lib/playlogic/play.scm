@@ -276,7 +276,7 @@
                   `((class "is-active"))
                   ())
             (trigger ,trigger))
-         ,(fas-icon icon) ,#" ~trigger")))
+         ,icon ,#" ~trigger")))
 
   (define (query loc flags)
     (build-query
@@ -320,14 +320,9 @@
                              (case (string->symbol type)
                                ((portal)
                                 (show-portal dialog-id trigger))
-                               ((inspection)
-                                (show-option dialog-id trigger "search"))
-                               ((conversation)
-                                (show-option dialog-id trigger "comment"))
-                               ((area)
-                                (show-option dialog-id trigger "sign-in-alt"))
                                (else
-                                (show-option dialog-id trigger "question")))
+                                (show-option dialog-id trigger
+                                             (icon-for-type type))))
                              ))))
                       rset))
                (p (@ (class "menu-label")) "Flags")
