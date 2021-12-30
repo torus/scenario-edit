@@ -153,9 +153,31 @@
                (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
             ,(fas-icon "edit")))))
 
-(define (render-dialog conv data-id . additioanl-elements)
+(define (render-dialog await conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
+
+  (define (show-portal)
+    (define dest (get "portal-destination"))
+    `(div (@ (class "columns"))
+          (div (@ (class "column"))
+               ,(fas-icon "walking") " " ,dest " "
+               ,(with-query-result/tree
+                 await
+                 (build-query
+                  *sqlite-conn*
+                  `(SELECT DISTINCT "location" FROM "dialogs"
+                           WHERE "type" = "portal"
+                           AND "trigger" = ?))
+                 `(,dest)
+                 (^[rset]
+                   (map
+                    (^[row]
+                      (let ((loc (vector-ref row 0)))
+                        `(,(fas-icon "map-marker-alt")
+                          (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                            ,loc))))
+                    rset))))))
 
   (let ((label     (get "label"))
         (lines     (get "lines"))
@@ -199,18 +221,12 @@
                              (map (^f `(span (@ (class "tag is-info")) ,f))
                                   flags-set))))
 
-                (if (string=? type "portal")
-                     `(div (@ (class "columns"))
-                           (div (@ (class "column"))
-                                ,(fas-icon "walking")
-                                " "
-                                ,(get "portal-destination")))
-                     ())
+                (if (string=? type "portal") (show-portal) ())
                 (render-lines lines)))))
 
-(define (render-dialog/edit-button conv data-id)
-  (render-dialog conv data-id
-                       (edit-buttons data-id (cdr (assoc "label" conv)))))
+(define (render-dialog/edit-button await conv data-id)
+  (render-dialog await conv data-id
+                 (edit-buttons data-id (cdr (assoc "label" conv)))))
 
 (define (not-empty? str) (and str (not (zero? (string-length str)))))
 
@@ -597,7 +613,7 @@
                    (ord (if prev-conv
                             (/ (+ (ord-of prev-conv) (ord-of conv)) 2)
                             (- (ord-of conv) 1024))))
-               (values (cons (render-dialog/edit-button conv id)
+               (values (cons (render-dialog/edit-button await conv id)
                              (cons (add-dialog-button id prev-label ord)
                                    rest))
                        conv)))
@@ -628,10 +644,10 @@
                    (fold2 (^[conv rest inserted?]
                             (let ((next-ord (cdr (assoc "ord" conv))))
                               (if (and (not inserted?) (> next-ord ord))
-                                  (values (cons (render-dialog conv id)
+                                  (values (cons (render-dialog await conv id)
                                                 (cons (new-form ord) rest))
                                           #t)
-                                  (values (cons (render-dialog conv id) rest)
+                                  (values (cons (render-dialog await conv id) rest)
                                           inserted?))))
                           () #f
                           content)))
@@ -653,7 +669,7 @@
                    (let ((label (cdr (assoc "label" conv))))
                      (cons (if (string=? label label-to-edit)
                                (new-form conv label)
-                               (render-dialog conv id))
+                               (render-dialog await conv id))
                            rest)))
                  ()
                  content))))
