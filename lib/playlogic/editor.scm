@@ -28,6 +28,7 @@
           container/
           render-location
           render-location-list
+          render-location-graph
           create-tables
           convert-scenario-file-to-relations
           scenario-page-header
@@ -1045,6 +1046,74 @@
 (define (location-image-url data-id loc)
   #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
 
+(define (render-location-graph await data-id)
+  (define (render-links-page links)
+    `(,(scenario-page-header await data-id)
+      (pre (@ (id "dot")
+              (class "is-hidden"))
+       "digraph {"
+       ,(map
+         (^[row]
+           (let ((from (vector-ref row 0))
+                 (to   (vector-ref row 1)))
+             #"~from -> ~to;\n"))
+         links)
+       "}")
+      ,(container/
+        `(div (@ (id "graph")) ""))))
+
+  (let ((links (query*
+                await
+                '(SELECT DISTINCT "d1" |.| "location" |,| "d2" |.| "location"
+                         FROM "dialogs" "d1"
+                         |,| "dialogs" "d2"
+                         |,| "portals" "p"
+                         WHERE "p" |.| "dialog_id" = "d1" |.| "dialog_id"
+                         AND "p" |.| "destination" = "d2" |.| "trigger"
+                         AND "d1" |.| "type" = "portal"
+                         AND "d2" |.| "type" = "portal"
+                         AND "d1" |.| "scenario_id" = ?
+                         AND "d2" |.| "scenario_id" = ?
+                         ORDER BY "d1" |.| "location" |,| "d2" |.| "location"
+                         )
+                data-id data-id)))
+
+    (list #"Location Graph #~data-id"
+          (render-links-page links)
+          `((script (@ (src "/static/viz.js")) "")
+            (script (@ (src "/static/full.render.js")) "")
+            (script "  var viz = new Viz();\n"
+                    "  var graph = document.querySelector('#dot').innerText;\n"
+                    "  viz.renderSVGElement(graph)\n"
+                    "  .then(function(element) {\n"
+                    "    document.querySelector('#graph').appendChild(element);\n"
+                    "  })\n"
+                    "  .catch(function(error) {\n"
+                    "    viz = new Viz();\n"
+                    "    // Possibly display the error\n"
+                    "    console.error(error);\n"
+                    "  });\n"
+                    )))))
+
+;; <script src="viz.js"></script>
+;; <script src="full.render.js"></script>
+;; <script>
+;;   var viz = new Viz();
+  
+;;   viz.renderSVGElement('digraph { a -> b }')
+;;   .then(function(element) {
+;;     document.body.appendChild(element);
+;;   })
+;;   .catch(error => {
+;;     // Create a new Viz instance (@see Caveats page for more info)
+;;     viz = new Viz();
+
+;;     // Possibly display the error
+;;     console.error(error);
+;;   });
+;; </script>
+
+
 (define (render-location-list await data-id)
   (define (show-location loc)
     `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
@@ -1065,6 +1134,8 @@
            (div (@ (class "column"))
                 (h2 (@ (class "title"))
                     ,(fas-icon "map-marked-alt") " Locations")
+                (p (a (@ (href ,#"/scenarios/~|data-id|/location-graph"))
+                      "Location Graph"))
                 (div (@ (class "menu"))
                      (ul (@ (class "menu-list"))
                          ,@(map

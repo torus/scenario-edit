@@ -142,7 +142,9 @@ if (/\/play\/\d+$/.test(location.href)) {
     link.click()
 } else {
     const link = document.querySelector('a[trigger="#description"]')
-    link.innerHTML =
-        '<span class="icon"><i class="fas fa-lightbulb"></i></span>'
-        + '場所の悦明'
+    if (link) {
+        link.innerHTML =
+            '<span class="icon"><i class="fas fa-lightbulb"></i></span>'
+            + '場所の悦明'
+    }
 }

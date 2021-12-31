@@ -7,3 +7,4 @@ violet
 data/
 /BUILT
 *.db
+*:Zone.Identifier

@@ -114,6 +114,13 @@
                            (scenario-page-header await id)
                            rendered)))))))
 
+  (define-http-handler #/^\/scenarios\/(\d+)\/location-graph$/
+    (^[req app]
+      (violet-async
+       (^[await]
+         (let-params req ([id "p:1"])
+                     (ok* req (render-location-graph await id)))))))
+
   (define-http-handler #/^\/static\// (file-handler))
 
   (define-http-handler "/admin/setup"
