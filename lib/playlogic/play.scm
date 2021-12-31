@@ -52,9 +52,6 @@
                  ,(fas-icon "home") (span "Back to Editor"))))))
 
 (define (render-page await data-id session-id session cur-dialog-id . content)
-  (define (image-url loc)
-    #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
-
   (let ((loc (json-query session '("location"))))
     `(,(play-page-header await data-id)
       ,(container/
@@ -68,7 +65,7 @@
                    (div (@ (class "columns"))
                         (div (@ (class "column")) "")
                         (div (@ (class "column is-9"))
-                             (img (@ (src ,(image-url loc)))))
+                             (img (@ (src ,(location-image-url data-id loc)))))
                         (div (@ (class "column")) ""))
                    ,content))))))
 

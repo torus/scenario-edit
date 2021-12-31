@@ -31,6 +31,7 @@
           create-tables
           convert-scenario-file-to-relations
           scenario-page-header
+          location-image-url
           ok
           ok*
 
@@ -700,7 +701,7 @@
                  ,(fas-icon "home") (span "Home"))
               (a (@ (class "navbar-item")
                     (href ,#`"/scenarios/,|id|/locations"))
-                 ,(fas-icon "map-signs") (span "Locations"))
+                 ,(fas-icon "map-marked-alt") (span "Locations"))
               (a (@ (class "navbar-item"))
                  (div (@ (class "buttons"))
                       (a (@ (class "button is-primary")
@@ -970,37 +971,84 @@
 (define (render-location await data-id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
+
+  (define (show-portal-destination label)
+    (let ((results
+           (query*
+            await
+            `(SELECT DISTINCT "d2" |.| "location"
+                     FROM "dialogs" "d1" |,| "dialogs" "d2" |,| "portals" "p"
+                     WHERE "d1" |.| "label" = ?
+                     AND "p" |.| "dialog_id" = "d1" |.| "dialog_id"
+                     AND "p" |.| "destination" = "d2" |.| "trigger")
+            label)))
+      (map
+       (^[row]
+         (let ((loc (vector-ref row 0)))
+           `(" "
+             ,(fas-icon "arrow-right")
+             (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                ,loc
+                ))))
+       results)))
+
+  (define (show-record conv)
+    (let ((label     (get "label" conv))
+          (flags-req (get "flags-required" conv))
+          (flags-exc (get "flags-exclusive" conv))
+          (flags-set (get "flags-set" conv))
+          (type      (get "type" conv))
+          (trigger   (get "trigger" conv)))
+      `(tr
+        (td ,(icon-for-type (get "type" conv))
+            " " ,trigger)
+        (td (a (@ (href
+                   ,#"/scenarios/~|data-id|#label-~label"))
+               ,label)
+
+            ,@(if (string=? type "portal")
+                  (show-portal-destination label)
+                  '())
+
+            )
+        (td
+         ,(intersperse
+           " "
+           (append
+            (map (^f `(span (@ (class "tag is-primary")) ,f))
+                 flags-req)
+            (map (^f `(span (@ (class "tag is-danger")) ,f))
+                 flags-exc)
+            (map (^f `(span (@ (class "tag is-info")) ,f))
+                 flags-set)))))))
+
   (let ((content (read-scenario-from-db await data-id "location" '= loc)))
     `(div (@ (class "container"))
           ((div (@ (class "block"))
-                (h2 (@ (class "title is-4")) "場所：" ,loc)
+                (h2 (@ (class "title is-4"))
+                    ,(fas-icon "map-marker-alt") " " ,loc)
+
+
+                   (div (@ (class "columns"))
+                        (div (@ (class "column")) "")
+                        (div (@ (class "column is-6"))
+                             (img (@ (src ,(location-image-url data-id loc)))))
+                        (div (@ (class "column")) ""))
                 (table (@ (class "table"))
+                       (tr (th "Trigger") (th "Label") (th "Flags"))
                        ,(map
                          (^[conv]
-                           (let ((label (get "label" conv))
-                                 (flags-req (get "flags-required" conv))
-                                 (flags-exc (get "flags-exclusive" conv))
-                                 (flags-set (get "flags-set" conv))
-                                 (trigger   (get "trigger" conv)))
-                             `(tr
-                               (td ,(icon-for-type (get "type" conv))
-                                   " " ,trigger)
-                               (td (a (@ (href
-                                          ,#"/scenarios/~|data-id|#label-~label"))
-                                      ,label))
-                               (td
-                                ,(intersperse
-                                  " "
-                                  (append
-                                   (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                        flags-req)
-                                   (map (^f `(span (@ (class "tag is-danger")) ,f))
-                                        flags-exc)
-                                   (map (^f `(span (@ (class "tag is-info")) ,f))
-                                        flags-set)))))))
+                           (show-record conv))
                          content)))))))
 
+(define (location-image-url data-id loc)
+  #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
+
 (define (render-location-list await data-id)
+  (define (show-location loc)
+    `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+            ,(fas-icon "map-marker-alt") " " ,loc)))
+
   (let* ((query
           (build-query *sqlite-conn*
                        `(SELECT DISTINCT "location"
@@ -1014,17 +1062,22 @@
     (container/
      `(div (@ (class "columns"))
            (div (@ (class "column"))
-                (h2 (@ (class "title")) "Locations")
-                (ul
-                 ,@(map
-                    (^[loc]
-                      `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                              ,loc)))
-                    locs)))))))
+                (h2 (@ (class "title"))
+                    ,(fas-icon "map-marked-alt") " Locations")
+                (div (@ (class "menu"))
+                     (ul (@ (class "menu-list"))
+                         ,@(map
+                            show-location
+                            locs))))))))
 
 ;; SQLite
 
 (define *sqlite-conn* #f)
+
+(define (query* await query . params)
+  (with-query-result/tree
+   await (build-query *sqlite-conn* query) params
+   (^[rset] (relation-rows rset))))
 
 (define (with-query-result await str args proc)
   (let ((rset (await (^[] (apply dbi-do *sqlite-conn* str '() args)))))
