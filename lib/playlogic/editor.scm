@@ -193,11 +193,9 @@
               ,(container/
                 `(div (@ (class "columns is-vcentered"))
                       ,@additioanl-elements
-                      (div (@ (class "column is-2"))
-                           (span (@ (class "tag is-info"))
-                                 ,type))
                       (div (@ (class "column is-one-third"))
-                           (h4 (@ (class "title is-4")) ,label))
+                           (h4 (@ (class "title is-4"))
+                               ,(icon-for-type type) " " ,label))
                       (div (@ (class "column"))
                            (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
                                  ,loc)
