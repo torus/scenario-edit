@@ -832,27 +832,20 @@
 (define (convert-json-to-csv await data-id)
   (let ((json (read-scenario-from-db await data-id)))
     (overwrite-json-file await json (json-file-path data-id))
-    (call-with-output-file "csv/Dialogs.csv"
-      (^[dialog-port]
-        (call-with-output-file "csv/Dialogs_lines.csv"
-          (^[line-port]
-            (call-with-output-file "csv/Dialogs_options.csv"
-              (^[option-port]
-                (call-with-output-file "csv/Dialogs_flags.csv"
-                  (^[flag-port]
-                    (call-with-output-file "csv/Dialogs_triggermap.csv"
-                      (^[triggermap-port]
-                        (call-with-output-file "csv/Dialogs_portals.csv"
-                          (^[portal-port]
-                            (json-match
-                             json
-                             (write-with-csv-writers line-port
-                                                     option-port
-                                                     dialog-port
-                                                     flag-port
-                                                     triggermap-port
-                                                     portal-port)))
-                          )))))))))))
+
+    (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
+          (line-port (open-output-file "csv/Dialogs_lines.csv"))
+          (option-port (open-output-file "csv/Dialogs_options.csv"))
+          (flag-port (open-output-file "csv/Dialogs_flags.csv"))
+          (triggermap-port (open-output-file "csv/Dialogs_triggermap.csv"))
+          (portal-port (open-output-file "csv/Dialogs_portals.csv")))
+      (json-match json
+                  (write-with-csv-writers line-port option-port
+                                          dialog-port flag-port
+                                          triggermap-port portal-port))
+
+      (for-each close-port (list line-port option-port dialog-port
+                                 flag-port triggermap-port portal-port)))
     "Conversion done!"))
 
 (define (safe-assoc-vec name alist)
@@ -890,76 +883,77 @@
          (^[i f] (w-flag `(,#"~|opt-label|_~i" "required" ,f)))
          flags-req))))
 
-  (w-dialog  '("" "type" "location" "trigger" "count" "flagcount"))
-  (w-option  '("" "option" "flagcount" "jump"))
-  (w-line    '("" "character" "text" "options"))
-  (w-flag    '("" "type" "flag"))
-  (w-trigger '("" "dialog"))
-  (w-portal  '("" "destination"))
+  (define (process-lines % @ label)
+    (% "lines"
+       (^d
+        (let ((char #f) (text #f) (num 0) (optcount 0))
+          ((@ (^j
+               ((% "character" (cut set! char <>)) j)
+               ((% "text" (cut set! text <>)) j)
+               (when (assoc "options" j)
+                 ((% "options"
+                     (^d
+                      (set! optcount (vector-length d))
+                      (let ((optnum 0))
+                        ((@
+                          (cut write-option % @ label num optnum <>)
+                          (^x (inc! optnum)))
+                         d))))
+                  j))
+               (w-line `(,#"~|label|_~num" ,char ,text
+                         ,(x->string optcount)))
+               (inc! num)
+               #t
+               j))
+           d)))))
+
+  (define (process-dialog % @)
+    (^d
+     (let ((label     (cdr (safe-assoc "label" d)))
+           (location  (cdr (safe-assoc "location" d)))
+           (trigger   (cdr (safe-assoc "trigger" d)))
+           (type      (cdr (safe-assoc "type" d)))
+           (linecount (vector-length (cdr (safe-assoc-vec "lines" d))))
+           (flagcount 0))
+       (when (and (> (string-length trigger) 0)
+                  (or (string=? type "message")
+                      (> (string-length location) 0)))
+         (let* ((key #"~|location|/~trigger")
+                (index (hash-table-get trigger-table key 0)))
+           (w-trigger `(,#"~|key|_~index" ,label))
+           (hash-table-put! trigger-table key (+ index 1))))
+       ((% "flags-required"
+           (@ (^d (w-flag `(,#"~|label|_~|flagcount|" "required" ,d))
+                  (inc! flagcount)))) d)
+       ((% "flags-exclusive"
+           (@ (^d (w-flag `(,#"~|label|_~|flagcount|" "exclusive" ,d))
+                  (inc! flagcount)))) d)
+       ((% "flags-set"
+           (@ (^d (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
+                  (inc! flagcount)))) d)
+
+       (w-dialog `(,label ,type ,location ,trigger
+                          ,(x->string linecount) ,(x->string flagcount)))
+
+       ((process-lines % @ label) d)
+
+       ((% "portal-destination"
+           (^d (w-portal `(,label ,d)))) d)
+
+       )))
+
+  (define (write-header)
+    (w-dialog  '("" "type" "location" "trigger" "count" "flagcount"))
+    (w-option  '("" "option" "flagcount" "jump"))
+    (w-line    '("" "character" "text" "options"))
+    (w-flag    '("" "type" "flag"))
+    (w-trigger '("" "dialog"))
+    (w-portal  '("" "destination")))
+
+  (write-header)
 
   (^[% @]
-    (@ (^d
-        (let ((label     (cdr (safe-assoc "label" d)))
-              (location  (cdr (safe-assoc "location" d)))
-              (trigger   (cdr (safe-assoc "trigger" d)))
-              (type      (cdr (safe-assoc "type" d)))
-              (linecount (vector-length (cdr (safe-assoc-vec "lines" d))))
-              (flagcount 0))
-          (when (and (> (string-length trigger) 0)
-                     (or (string=? type "message")
-                         (> (string-length location) 0)))
-            (let* ((key #"~|location|/~trigger")
-                   (index (hash-table-get trigger-table key 0)))
-              (w-trigger `(,#"~|key|_~index" ,label))
-              (hash-table-put! trigger-table key (+ index 1))))
-          ((% "flags-required"
-              (@
-               (^d
-                (w-flag `(,#"~|label|_~|flagcount|" "required" ,d))
-                (inc! flagcount)))) d)
-          ((% "flags-exclusive"
-              (@
-               (^d
-                (w-flag `(,#"~|label|_~|flagcount|" "exclusive" ,d))
-                (inc! flagcount)))) d)
-          ((% "flags-set"
-              (@
-               (^d
-                (w-flag `(,#"~|label|_~|flagcount|" "set" ,d))
-                (inc! flagcount)))) d)
-
-          (w-dialog `(,label ,type ,location ,trigger
-                             ,(x->string linecount) ,(x->string flagcount)))
-
-          ((% "lines"
-              (^d
-               (let ((char #f) (text #f) (num 0) (optcount 0))
-                 ((@ (^j
-                      ((% "character" (cut set! char <>)) j)
-                      ((% "text" (cut set! text <>)) j)
-                      (when (assoc "options" j)
-                        ((% "options"
-                            (^d
-                             (set! optcount (vector-length d))
-                             (let ((optnum 0))
-                               ((@
-                                 (cut write-option % @ label num optnum <>)
-                                 (^x (inc! optnum)))
-                                d))))
-                         j))
-                      (w-line `(,#"~|label|_~num" ,char ,text
-                                ,(x->string optcount)))
-                      (inc! num)
-                      #t
-                      j))
-                  d))))
-           d)
-
-          ((% "portal-destination"
-              (^d
-               (w-portal `(,label ,d)))) d)
-
-          )))))
+    (@ (process-dialog % @))))
 
 (define (icon-for-type type)
   (fas-icon
