@@ -10,3 +10,5 @@
 
 (import playlogic.play)
 (test-module 'playlogic.play)
+
+(test-end)

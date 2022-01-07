@@ -135,3 +135,5 @@
                    (let ((line-id (vector-ref (car
                                                (relation-rows rset)) 0)))
                      (assert-equal #t (number? line-id))))))
+
+(test-end)
