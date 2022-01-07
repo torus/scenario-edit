@@ -716,9 +716,10 @@
                            (span "Convert from JSON"))
                         ))))))
 
-(define (overwrite-json-file await json filename)
+(define (overwrite-json-file await dialogs-json filename)
   (await (^[]
-           (let ((new-json (acons "dialogs" json ())))
+           (let ((new-json `(("version" . "1.0")
+                             ("dialogs" . ,dialogs-json))))
              (call-with-temporary-file
               (^[port tmpfile]
                 (with-output-to-port port
@@ -824,8 +825,8 @@
          (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((json (read-dialogs-from-db await data-id)))
-    (overwrite-json-file await json (json-file-path data-id))
+  (let ((dialogs-json (read-dialogs-from-db await data-id)))
+    (overwrite-json-file await dialogs-json (json-file-path data-id))
 
     (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
           (line-port (open-output-file "csv/Dialogs_lines.csv"))
@@ -833,7 +834,7 @@
           (flag-port (open-output-file "csv/Dialogs_flags.csv"))
           (triggermap-port (open-output-file "csv/Dialogs_triggermap.csv"))
           (portal-port (open-output-file "csv/Dialogs_portals.csv")))
-      (json-match json
+      (json-match dialogs-json
                   (write-with-csv-writers line-port option-port
                                           dialog-port flag-port
                                           triggermap-port portal-port))
