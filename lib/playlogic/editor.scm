@@ -469,26 +469,20 @@
 (define (read-scenario-file await id)
   (await (^[] (with-input-from-file (json-file-path id) parse-json))))
 
-(define (read-scenario-from-db await id . additional-filter)
-  (let ((query (build-query
-                *sqlite-conn*
-                `(SELECT "dialog_id" |,| "label" |,| "location"
-                         |,| "type" |,| "ord" |,| "trigger"
-                         FROM "dialogs"
-                         WHERE "scenario_id" = ?
-                         ,@(if (pair? additional-filter)
-                               `(AND ,additional-filter)
-                               ())
-                         ORDER BY "ord"))))
-    (with-query-result/tree
-     await
-     query
-     `(,id)
-     (^[rset]
-       (map-to <vector>
-               (^[row]
-                 (read-dialog-detail-from-db await row))
-               rset)))))
+(define (read-dialogs-from-db await id . additional-filter)
+  (let ((results (query* await
+                         `(SELECT "dialog_id" |,| "label" |,| "location"
+                                  |,| "type" |,| "ord" |,| "trigger"
+                                  FROM "dialogs"
+                                  WHERE "scenario_id" = ?
+                                  ,@(if (pair? additional-filter)
+                                        `(AND ,additional-filter)
+                                        ())
+                                  ORDER BY "ord")
+                         id)))
+    (map-to <vector>
+            (cut read-dialog-detail-from-db await <>)
+            results)))
 
 (define (read-dialog-detail-from-db await row)
   (let ((dialog-id (vector-ref row 0))
@@ -619,7 +613,7 @@
                        conv)))
            () #f
            content))
-  (let ((content (read-scenario-from-db await id)))
+  (let ((content (read-dialogs-from-db await id)))
     (if (zero? (vector-length content))
         `(,(add-dialog-button id #f 1024))
         (let-values (((convs prev-conv)
@@ -638,7 +632,7 @@
                         `(input (@ (id "ord-input")
                                    (type "hidden")
                                    (value ,ord)))))
-  (let ((content (read-scenario-from-db await id)))
+  (let ((content (read-dialogs-from-db await id)))
     (reverse
      (let-values (((result inserted?)
                    (fold2 (^[conv rest inserted?]
@@ -663,7 +657,7 @@
                                    (type "hidden")
                                    (value ,label)))))
 
-  (let ((content (read-scenario-from-db await id)))
+  (let ((content (read-dialogs-from-db await id)))
     (reverse
      (fold (^[conv rest]
              (let ((label (cdr (assoc "label" conv))))
@@ -830,7 +824,7 @@
          (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((json (read-scenario-from-db await data-id)))
+  (let ((json (read-dialogs-from-db await data-id)))
     (overwrite-json-file await json (json-file-path data-id))
 
     (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
@@ -952,8 +946,7 @@
 
   (write-header)
 
-  (^[% @]
-    (@ (process-dialog % @))))
+  (^[% @] (@ (process-dialog % @))))
 
 (define (icon-for-type type)
   (fas-icon
@@ -1018,7 +1011,7 @@
             (map (^f `(span (@ (class "tag is-info")) ,f))
                  flags-set)))))))
 
-  (let ((content (read-scenario-from-db await data-id "location" '= loc)))
+  (let ((content (read-dialogs-from-db await data-id "location" '= loc)))
     `(div (@ (class "container"))
           ((div (@ (class "block"))
                 (h2 (@ (class "title is-4"))
