@@ -718,7 +718,7 @@
 
 (define (overwrite-json-file await json filename)
   (await (^[]
-           (let ((new-json json))
+           (let ((new-json (acons "dialogs" json ())))
              (call-with-temporary-file
               (^[port tmpfile]
                 (with-output-to-port port
@@ -726,7 +726,7 @@
                     (guard (e [else (report-error e)])
                            (construct-json new-json))
                     (flush)))
-                (sys-system #"jq '[.[] | del(.id) | del(.ord) | del(.lines[].id) | del(.lines[].ord) ]' < ~tmpfile > ~filename"))
+                (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
               :directory "json")
              'done
              ))))
@@ -1288,7 +1288,7 @@
             (^[dialog]
               (convert-dialog-to-relations await id dialog dialog-order)
               (set! dialog-order (+ dialog-order 1024)))
-            json)
+            (json-query json '("dialogs")))
            )
 
          (execute-query-tree '("COMMIT"))
