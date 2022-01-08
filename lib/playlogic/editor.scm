@@ -958,6 +958,15 @@
      ((area          "sign-in-alt"))
      (else           "question"))))
 
+(define (get-ascii-name await data-id loc)
+  (let ((results (query* await `(SELECT "ascii" FROM "ascii_names"
+                                        WHERE "original" = ?
+                                        AND "scenario_id" = ?)
+                         loc data-id)))
+    (if (pair? results)
+        (vector-ref (car results) 0)
+        "")))
+
 (define (render-location await data-id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
@@ -1012,18 +1021,35 @@
             (map (^f `(span (@ (class "tag is-info")) ,f))
                  flags-set)))))))
 
-  (let ((content (read-dialogs-from-db await data-id "location" '= loc)))
+  (let ((content (read-dialogs-from-db await data-id "location" '= loc))
+        (ascii   (get-ascii-name await data-id loc)))
     `(div (@ (class "container"))
           ((div (@ (class "block"))
                 (h2 (@ (class "title is-4"))
                     ,(fas-icon "map-marker-alt") " " ,loc)
-
-
-                   (div (@ (class "columns"))
-                        (div (@ (class "column")) "")
-                        (div (@ (class "column is-6"))
-                             (img (@ (src ,(location-image-url data-id loc)))))
-                        (div (@ (class "column")) ""))
+                (div (@ (class "columns"))
+                     (div (@ (class "column"))
+                          (div (@ (class "field is-horizontal"))
+                               (div (@ (class "field-label is-normal"))
+                                    (label (@ (class "label")) "ASCII name"))
+                               (div (@ (class "field-body"))
+                                    (div (@ (class "field"))
+                                         (div (@ (class "control"))
+                                              (input (@ (id "ascii-name-input")
+                                                        (class "input")
+                                                        (type "text")
+                                                        (placeholder "name")
+                                                        (value ,ascii)))))
+                                    (div (@ (class "field"))
+                                         (div (@ (class "control"))
+                                              (button (@ (class
+                                                          "button is-primary"))
+                                                      "更新")))))))
+                (div (@ (class "columns"))
+                     (div (@ (class "column")) "")
+                     (div (@ (class "column is-6"))
+                          (img (@ (src ,(location-image-url data-id loc)))))
+                     (div (@ (class "column")) ""))
                 (table (@ (class "table"))
                        (tr (th "Trigger") (th "Label") (th "Flags"))
                        ,(map
@@ -1354,5 +1380,11 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS portals ("
                         "  dialog_id   INTEGER PRIMARY KEY"
                         ", destination INTEGER NOT NULL"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS ascii_names ("
+                        "  original    TEXT PRIMARY KEY"
+                        ", scenario_id INTEGER NOT NULL"
+                        ", ascii       TEXT NOT NULL"
                         ")"))
   )
