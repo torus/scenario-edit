@@ -1117,20 +1117,22 @@
 
 
 (define (render-location-list await data-id)
-  (define (show-location loc)
-    `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-            ,(fas-icon "map-marker-alt") " " ,loc)))
+  (define (show-location loc&ascii)
+    (let ((loc (car loc&ascii))
+          (ascii (or (cadr loc&ascii) '(span (@ (class "tag is-danger"))
+                                             "ASCII NOT SPECIFIED"))))
+      `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+              ,(fas-icon "map-marker-alt") " " ,loc
+              " (" ,ascii ")"))))
 
-  (let* ((query
-          (build-query *sqlite-conn*
-                       `(SELECT DISTINCT "location"
-                                FROM "dialogs"
-                                WHERE "scenario_id" = ,data-id
-                                ORDER BY "location")))
-         (locs (with-query-result/tree
-                await query ()
-                (^[rset]
-                  (map (cut vector-ref <> 0) rset)))))
+  (let* ((results
+          (query* await
+                  `(SELECT DISTINCT "d" |.| "location" |,| "a" |.| "ascii"
+                           FROM "dialogs" "d"
+                           LEFT OUTER JOIN "ascii_names" "a"
+                           ON "d" |.| "location" = "a" |.| "original"
+                           WHERE "d" |.| "scenario_id" = ,data-id
+                           ORDER BY "d" |.| "location"))))
     (container/
      `(div (@ (class "columns"))
            (div (@ (class "column"))
@@ -1142,7 +1144,7 @@
                      (ul (@ (class "menu-list"))
                          ,@(map
                             show-location
-                            locs))))))))
+                            (map vector->list results)))))))))
 
 ;; SQLite
 
