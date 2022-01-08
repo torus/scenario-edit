@@ -1036,7 +1036,8 @@
                 (div (@ (class "columns"))
                      (div (@ (class "column")) "")
                      (div (@ (class "column is-6"))
-                          (img (@ (src ,(location-image-url data-id loc)))))
+                          (img (@ (src ,(location-image-url await data-id
+                                                            loc)))))
                      (div (@ (class "column")) ""))
                 (table (@ (class "table"))
                        (tr (th "Trigger") (th "Label") (th "Flags"))
@@ -1045,8 +1046,9 @@
                            (show-record conv))
                          content)))))))
 
-(define (location-image-url data-id loc)
-  #"/static/gameassets/~|data-id|/images/locations/~|loc|.jpg")
+(define (location-image-url await data-id loc)
+  (let ((ascii-name (get-ascii-name await data-id loc)))
+    #"/static/gameassets/~|data-id|/images/locations/~|ascii-name|.jpg"))
 
 (define (render-location-graph await data-id)
   (define (render-links-page links)

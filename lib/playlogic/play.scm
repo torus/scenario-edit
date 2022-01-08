@@ -65,7 +65,8 @@
                    (div (@ (class "columns"))
                         (div (@ (class "column")) "")
                         (div (@ (class "column is-9"))
-                             (img (@ (src ,(location-image-url data-id loc)))))
+                             (img (@ (src ,(location-image-url await data-id
+                                                               loc)))))
                         (div (@ (class "column")) ""))
                    ,content))))))
 
