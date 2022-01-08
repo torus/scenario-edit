@@ -3,7 +3,6 @@
 
   (use file.util)
   (use rfc.json)
-  (use sxml.tools)
   (use text.csv)
   (use text.tree)
 
@@ -33,8 +32,7 @@
           convert-scenario-file-to-relations
           scenario-page-header
           location-image-url
-          ok
-          ok*
+          create-page/title
 
           read-dialog-detail-from-db
 
@@ -69,33 +67,6 @@
      ,@children
      (script (@ (src "/static/script.js")) "")))
   )
-
-(define (create-error-page e)
-  (cons "<!DOCTYPE html>"
-        (sxml:sxml->html
-         (create-page/title
-          "ERROR!"
-          `((div (@ (class "container"))
-                 (h1 (@ (class "title"))
-                     "Something went wrong " ,(fas-icon "sad-tear"))
-                 (pre ,(report-error e #f))))))))
-
-(define-syntax ok
-  (syntax-rules ()
-    [(_ req title elements ...)
-     (guard (e [else (report-error e)
-                     (respond/ng req 500 :body (create-error-page e))])
-            (respond/ok req (cons "<!DOCTYPE html>"
-                                  (sxml:sxml->html
-                                   (create-page/title title elements ...)))))]))
-(define-syntax ok*
-  (syntax-rules ()
-    [(_ req elements)
-     (guard (e [else (report-error e)
-                     (respond/ng req 500 :body (create-error-page e))])
-            (respond/ok req (cons "<!DOCTYPE html>"
-                                  (sxml:sxml->html
-                                   (apply create-page/title elements)))))]))
 
 (define (container/ . children)
   `(div (@ (class "container"))
@@ -1163,7 +1134,10 @@
 (define (query* await query . params)
   (with-query-result/tree
    await (build-query *sqlite-conn* query) params
-   (^[rset] (relation-rows rset))))
+   (^[rset]
+     (if (is-a? rset <relation>)
+         (relation-rows rset)
+         rset))))
 
 (define (with-query-result await str args proc)
   (let ((rset (await (^[] (apply dbi-do *sqlite-conn* str '() args)))))

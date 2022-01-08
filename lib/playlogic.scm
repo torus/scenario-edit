@@ -2,6 +2,8 @@
   (use violet)
   (use makiki)
 
+  (use sxml.tools)
+
   (use dbi)
   (add-load-path "../gosh-modules/dbd-sqlite" :relative)
   (use dbd.sqlite)
@@ -14,6 +16,33 @@
    ))
 
 (select-module playlogic)
+
+(define-syntax ok
+  (syntax-rules ()
+    [(_ req title elements ...)
+     (guard (e [else (report-error e)
+                     (respond/ng req 500 :body (create-error-page e))])
+            (respond/ok req (cons "<!DOCTYPE html>"
+                                  (sxml:sxml->html
+                                   (create-page/title title elements ...)))))]))
+(define-syntax ok*
+  (syntax-rules ()
+    [(_ req elements)
+     (guard (e [else (report-error e)
+                     (respond/ng req 500 :body (create-error-page e))])
+            (respond/ok req (cons "<!DOCTYPE html>"
+                                  (sxml:sxml->html
+                                   (apply create-page/title elements)))))]))
+
+(define (create-error-page e)
+  (cons "<!DOCTYPE html>"
+        (sxml:sxml->html
+         (create-page/title
+          "ERROR!"
+          `((div (@ (class "container"))
+                 (h1 (@ (class "title"))
+                     "Something went wrong " ,(fas-icon "sad-tear"))
+                 (pre ,(report-error e #f))))))))
 
 (define (playlogic-start!)
   (define-http-handler "/"
