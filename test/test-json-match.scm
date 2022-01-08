@@ -69,4 +69,4 @@
                     13
                     (json-query json '(1 "c" 0 "d"))))))
 
-(test-end)
+(test-end :exit-on-failure #t)
