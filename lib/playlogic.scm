@@ -143,6 +143,20 @@
                            (scenario-page-header await id)
                            rendered)))))))
 
+  (define-http-handler #/^\/scenarios\/(\d+)\/update-ascii-name$/
+    (with-post-parameters
+     (^[req app]
+       (violet-async
+        (^[await]
+          (let-params req ([id "p:1"]
+                           [input-original "q"]
+                           [input-ascii "q"])
+                      (set-ascii-name await id input-original input-ascii)
+                      (respond/redirect
+                         req
+                         #"/scenarios/~|id|/locations/~input-original")
+                      ))))))
+
   (define-http-handler #/^\/scenarios\/(\d+)\/location-graph$/
     (^[req app]
       (violet-async

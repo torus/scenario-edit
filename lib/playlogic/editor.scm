@@ -32,6 +32,7 @@
           convert-scenario-file-to-relations
           scenario-page-header
           location-image-url
+          set-ascii-name
           create-page/title
 
           read-dialog-detail-from-db
@@ -938,6 +939,13 @@
         (vector-ref (car results) 0)
         "")))
 
+(define (set-ascii-name await data-id original ascii)
+  (query* await
+          `(INSERT OR REPLACE INTO "ascii_names"
+                   ("original" |,| "scenario_id" |,| "ascii")
+                   VALUES (? |,| ? |,| ?))
+          original data-id ascii))
+
 (define (render-location await data-id loc)
   (define (get name conv)
     (cdr (assoc name conv)))
@@ -992,6 +1000,29 @@
             (map (^f `(span (@ (class "tag is-info")) ,f))
                  flags-set)))))))
 
+  (define (ascii-name-form ascii)
+    `(form (@ (method "post")
+              (action ,#"/scenarios/~|data-id|/update-ascii-name"))
+           (div (@ (class "field is-horizontal"))
+                (div (@ (class "field-label is-normal"))
+                     (label (@ (class "label")) "ASCII name"))
+                (div (@ (class "field-body"))
+                     (div (@ (class "field"))
+                          (div (@ (class "control"))
+                               (input (@ (name "input-original")
+                                         (type "hidden")
+                                         (value ,loc)))
+                               (input (@ (name "input-ascii")
+                                         (class "input")
+                                         (type "text")
+                                         (placeholder "name")
+                                         (value ,ascii)))))
+                     (div (@ (class "field"))
+                          (div (@ (class "control"))
+                               (button (@ (class
+                                           "button is-primary"))
+                                       "更新")))))))
+
   (let ((content (read-dialogs-from-db await data-id "location" '= loc))
         (ascii   (get-ascii-name await data-id loc)))
     `(div (@ (class "container"))
@@ -1000,22 +1031,8 @@
                     ,(fas-icon "map-marker-alt") " " ,loc)
                 (div (@ (class "columns"))
                      (div (@ (class "column"))
-                          (div (@ (class "field is-horizontal"))
-                               (div (@ (class "field-label is-normal"))
-                                    (label (@ (class "label")) "ASCII name"))
-                               (div (@ (class "field-body"))
-                                    (div (@ (class "field"))
-                                         (div (@ (class "control"))
-                                              (input (@ (id "ascii-name-input")
-                                                        (class "input")
-                                                        (type "text")
-                                                        (placeholder "name")
-                                                        (value ,ascii)))))
-                                    (div (@ (class "field"))
-                                         (div (@ (class "control"))
-                                              (button (@ (class
-                                                          "button is-primary"))
-                                                      "更新")))))))
+                          ,(ascii-name-form ascii)
+                          ))
                 (div (@ (class "columns"))
                      (div (@ (class "column")) "")
                      (div (@ (class "column is-6"))
