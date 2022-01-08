@@ -1053,14 +1053,14 @@
     `(,(scenario-page-header await data-id)
       (pre (@ (id "dot")
               (class "is-hidden"))
-       "digraph {"
-       ,(map
-         (^[row]
-           (let ((from (vector-ref row 0))
-                 (to   (vector-ref row 1)))
-             #"~from -> ~to;\n"))
-         links)
-       "}")
+           "digraph {"
+           ,(map
+             (^[row]
+               (let ((from (vector-ref row 0))
+                     (to   (vector-ref row 1)))
+                 #"~from -> ~to;\n"))
+             links)
+           "}")
       ,(container/
         `(div (@ (id "graph")) ""))))
 
@@ -1101,7 +1101,7 @@
 ;; <script src="full.render.js"></script>
 ;; <script>
 ;;   var viz = new Viz();
-  
+
 ;;   viz.renderSVGElement('digraph { a -> b }')
 ;;   .then(function(element) {
 ;;     document.body.appendChild(element);
