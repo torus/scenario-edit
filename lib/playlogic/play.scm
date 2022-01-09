@@ -17,6 +17,7 @@
           play-game/dialog!
           play-game-cont!
           play-show-session
+          play-update-session!
           ))
 
 (select-module playlogic.play)
@@ -57,6 +58,10 @@
                     (href ,#`"/scenarios/,|data-id|/play/,|session-id|/session"))
                  ,(fas-icon "save") (span "ふっかつのじゅもん"))))))
 
+(define (play-update-session! await data-id session-id session-string)
+  (let ((session (parse-json-string session-string)))
+    (hash-table-put! *session-table* (x->string session-id) session)))
+
 (define (play-show-session await data-id session-id)
   (define session (hash-table-get *session-table* session-id #f))
   (define (json-string)
@@ -69,27 +74,37 @@
                  (let ((formatted (port->string iport)))
                    formatted))))))
 
+  (define (cancel-btn)
+    `(div (@ (class "control"))
+          (a (@ (class "button")
+                (href ,#"/scenarios/~|data-id|/play/~session-id"))
+             "キャンセル")))
+
+  (define (session-form)
+    `(form (@ (method "post")
+              (action ,#"/scenarios/~|data-id|/play/~|session-id|/session/update"))
+           (div (@ (class "field"))
+                (textarea (@ (class "textarea")
+                             (name  "session"))
+                          ,(json-string)))
+           (div (@ (class "field is-grouped"))
+                ,(cancel-btn)
+                (div (@ (class "control"))
+                     (input (@ (type "submit")
+                               (class "button is-primary")
+                               (value "更新")))))))
+
   `("Session"
     ,(play-page-header await data-id session-id)
     ,(container/
       `(div (@ (class "columns"))
             (div (@ (class "column"))
-                 (h2 (@ (class "title is-3"))
-                     "Current Session")
+                 (h2 (@ (class "title is-3")) "Current Session")
                  ,(if session
-                      `(div (@ (class "field"))
-                            (textarea (@ (class "textarea"))
-                                      ,(json-string)))
-                      `(div (@ (class "notification is-danger"))
-                            "No session found."))
-                 (div (@ (class "field is-grouped"))
-                      (div (@ (class "control"))
-                           (a (@ (class "button")
-                                 (href ,#"/scenarios/~|data-id|/play/~session-id"))
-                              "キャンセル"))
-                      (div (@ (class "control"))
-                           (button (@ (class "button is-primary"))
-                                   "更新"))))))))
+                      (session-form)
+                      `((div (@ (class "notification is-danger"))
+                             "No session found.")
+                        ,(cancel-btn))))))))
 
 (define (render-page await data-id session-id session cur-dialog-id . content)
   (let ((loc (json-query session '("location"))))

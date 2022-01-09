@@ -213,7 +213,7 @@
                      (ok* req (play-game/dialog! await id session-id dialog-id))
                      )))))
 
-  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/session/
+  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/session$/
     (^[req app]
       (violet-async
        (^[await]
@@ -221,6 +221,19 @@
                           [session-id "p:2"])
                      (ok* req (play-show-session await id session-id))
                      )))))
+
+  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/session\/update$/
+    (with-post-parameters
+     (^[req app]
+       (violet-async
+        (^[await]
+          (let-params req ([id         "p:1"]
+                           [session-id "p:2"]
+                           [session    "q"])
+                      (play-update-session! await id session-id session)
+                      (respond/redirect
+                       req #"/scenarios/~|id|/play/~|session-id|/session")
+                      ))))))
 
   (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
