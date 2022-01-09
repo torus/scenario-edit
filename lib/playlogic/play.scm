@@ -137,12 +137,12 @@
               (car (map (cut vector-ref <> 0) rset))))))
 
       `((a (@ (href
-              ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
-          (span (@ (class "tag is-info"))
-                ,(fas-icon "arrow-circle-right") " "
-                ,label
-                )
-          ))
+               ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+           (span (@ (class "tag is-info"))
+                 ,(fas-icon "arrow-circle-right") " "
+                 ,label
+                 )
+           ))
       )
     )
 
