@@ -1,6 +1,7 @@
 (define-module playlogic.play
   (use scheme.set)
   (use gauche.collection)
+  (use gauche.process)
   (use rfc.json)
 
   (use dbi)
@@ -15,7 +16,8 @@
   (export play-game!
           play-game/dialog!
           play-game-cont!
-   ))
+          play-show-session
+          ))
 
 (select-module playlogic.play)
 
@@ -42,18 +44,56 @@
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
-(define (play-page-header await data-id)
+(define (play-page-header await data-id session-id)
   (navbar/
    await data-id
    `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
          (div (@ (class "navbar-start"))
               (a (@ (class "navbar-item")
                     (href ,#`"/scenarios/,|data-id|"))
-                 ,(fas-icon "home") (span "Back to Editor"))))))
+                 ,(fas-icon "home") (span "Back to Editor")))
+         (div (@ (class "navbar-end"))
+              (a (@ (class "navbar-item")
+                    (href ,#`"/scenarios/,|data-id|/play/,|session-id|/session"))
+                 ,(fas-icon "save") (span "ふっかつのじゅもん"))))))
+
+(define (play-show-session await data-id session-id)
+  (define session (hash-table-get *session-table* session-id #f))
+  (define (json-string)
+    (await
+     (^[]
+       (call-with-process-io
+        "jq ." (^[iport oport]
+                 (construct-json session oport)
+                 (close-port oport)
+                 (let ((formatted (port->string iport)))
+                   formatted))))))
+
+  `("Session"
+    ,(play-page-header await data-id session-id)
+    ,(container/
+      `(div (@ (class "columns"))
+            (div (@ (class "column"))
+                 (h2 (@ (class "title is-3"))
+                     "Current Session")
+                 ,(if session
+                      `(div (@ (class "field"))
+                            (textarea (@ (class "textarea"))
+                                      ,(json-string)))
+                      `(div (@ (class "notification is-danger"))
+                            "No session found."))
+                 (div (@ (class "field is-grouped"))
+                      (div (@ (class "control"))
+                           (a (@ (class "button")
+                                 (href ,#"/scenarios/~|data-id|/play/~session-id"))
+                              "キャンセル"))
+                      (div (@ (class "control"))
+                           (button (@ (class "button is-primary"))
+                                   "更新"))))))))
 
 (define (render-page await data-id session-id session cur-dialog-id . content)
   (let ((loc (json-query session '("location"))))
-    `(,(play-page-header await data-id)
+    `(,(play-page-header await data-id session-id)
       ,(container/
         `(div (@ (class "columns"))
               (div (@ (class "column is-3"))

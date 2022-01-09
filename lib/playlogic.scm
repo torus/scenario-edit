@@ -213,6 +213,15 @@
                      (ok* req (play-game/dialog! await id session-id dialog-id))
                      )))))
 
+  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/session/
+    (^[req app]
+      (violet-async
+       (^[await]
+         (let-params req ([id         "p:1"]
+                          [session-id "p:2"])
+                     (ok* req (play-show-session await id session-id))
+                     )))))
+
   (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
     (print "Sqlite connected")
