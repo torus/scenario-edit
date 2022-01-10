@@ -3,6 +3,7 @@
   (use gauche.collection)
   (use gauche.process)
   (use rfc.json)
+  (use util.match)
 
   (use dbi)
   (add-load-path "../gosh-modules/dbd-sqlite" :relative)
@@ -48,6 +49,11 @@
 (define (play-page-header await data-id session-id)
   (navbar/
    await data-id
+   (match
+    (query* await '(SELECT "title" FROM "scenarios"
+                           WHERE "scenario_id" = ?) data-id)
+    ((#(title)) title)
+    (() "Untitled Scenario"))
    `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
          (div (@ (class "navbar-start"))
               (a (@ (class "navbar-item")

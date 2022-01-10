@@ -43,6 +43,7 @@
 
           ;; query
           with-query-result/tree
+          query*
           ))
 
 (select-module playlogic.editor)
@@ -641,13 +642,13 @@
            ()
            content))))
 
-(define (navbar/ await data-id . content)
+(define (navbar/ await data-id title . content)
   `(navbar (@ (class "navbar is-fixed-top is-light")
               (role "navigation")
               (aria-label "main navigation"))
            (div (@ (class "navbar-brand"))
                 (div (@ (class "navbar-item"))
-                     (h1 (@ (class "title is-3")) ,#"Scenario #~data-id"))
+                     (h1 (@ (class "title is-4")) ,#"~|title|"))
                 (a (@ (role "button") (class "navbar-burger")
                       (aria-label "menu") (aria-expanded "false")
                       (data-target "playlogic-navbar"))
@@ -658,36 +659,42 @@
            ,content))
 
 (define (scenario-page-header await id)
-  (navbar/
-   await id
-   `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
-         (div (@ (class "navbar-start"))
-              (a (@ (class "navbar-item")
-                    (href ,#`"/scenarios/,|id|"))
-                 ,(fas-icon "home") (span "Home"))
-              (a (@ (class "navbar-item")
-                    (href ,#`"/scenarios/,|id|/locations"))
-                 ,(fas-icon "map-marked-alt") (span "Locations"))
-              (a (@ (class "navbar-item"))
-                 (div (@ (class "buttons"))
-                      (a (@ (class "button is-primary")
-                            (href ,#`"/scenarios/,|id|/play/,*session-id*"))
-                         ,(fas-icon "gamepad") (span "Play")))))
+  (let ((title (match
+                (query* await '(SELECT "title" FROM "scenarios"
+                                       WHERE "scenario_id" = ?) id)
+                ((#(title)) title)
+                (() "Untitled Scenario"))))
+    (navbar/
+     await id
+     title
+     `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
+           (div (@ (class "navbar-start"))
+                (a (@ (class "navbar-item")
+                      (href ,#`"/scenarios/,|id|"))
+                   ,(fas-icon "home") (span "Home"))
+                (a (@ (class "navbar-item")
+                      (href ,#`"/scenarios/,|id|/locations"))
+                   ,(fas-icon "map-marked-alt") (span "Locations"))
+                (a (@ (class "navbar-item"))
+                   (div (@ (class "buttons"))
+                        (a (@ (class "button is-primary")
+                              (href ,#`"/scenarios/,|id|/play/,*session-id*"))
+                           ,(fas-icon "gamepad") (span "Play")))))
 
-         (div (@ (class "navbar-end"))
-              (div (@ (class "navbar-item has-dropdown is-hoverable"))
-                   (a (@ (class "navbar-link"))
-                      ,(fas-icon "hammer")
-                      (span "Admin"))
-                   (div (@ (class "navbar-dropdown is-right"))
-                        (a (@ (class "navbar-item")
-                              (href ,#`"/scenarios/,|id|/update-csv"))
-                           ,(fas-icon "save") (span "Update CSV/JSON"))
-                        (a (@ (class "navbar-item")
-                              (href ,#`"/scenarios/,|id|/convert"))
-                           ,(fas-icon "skull-crossbones")
-                           (span "Convert from JSON"))
-                        ))))))
+           (div (@ (class "navbar-end"))
+                (div (@ (class "navbar-item has-dropdown is-hoverable"))
+                     (a (@ (class "navbar-link"))
+                        ,(fas-icon "hammer")
+                        (span "Admin"))
+                     (div (@ (class "navbar-dropdown is-right"))
+                          (a (@ (class "navbar-item")
+                                (href ,#`"/scenarios/,|id|/update-csv"))
+                             ,(fas-icon "save") (span "Update CSV/JSON"))
+                          (a (@ (class "navbar-item")
+                                (href ,#`"/scenarios/,|id|/convert"))
+                             ,(fas-icon "skull-crossbones")
+                             (span "Convert from JSON"))
+                          )))))))
 
 (define (overwrite-json-file await new-json filename)
   (await (^[]
