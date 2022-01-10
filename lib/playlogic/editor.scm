@@ -813,7 +813,7 @@
                             ORDER BY "a" |.| "ascii")
                    data-id)))
       (map-to <vector>
-              (cut match <> (#(loc ascii)
+              (match-lambda (#(loc ascii)
                              `(("label" . ,loc)
                                ("ascii" . ,ascii))))
               results)))
