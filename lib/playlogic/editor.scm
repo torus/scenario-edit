@@ -5,6 +5,7 @@
   (use rfc.json)
   (use text.csv)
   (use text.tree)
+  (use util.match)
 
   (use makiki)
 
@@ -688,21 +689,18 @@
                            (span "Convert from JSON"))
                         ))))))
 
-(define (overwrite-json-file await dialogs-json filename)
+(define (overwrite-json-file await new-json filename)
   (await (^[]
-           (let ((new-json `(("version" . "1.0")
-                             ("dialogs" . ,dialogs-json))))
-             (call-with-temporary-file
-              (^[port tmpfile]
-                (with-output-to-port port
-                  (^[]
-                    (guard (e [else (report-error e)])
-                           (construct-json new-json))
-                    (flush)))
-                (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
-              :directory "json")
-             'done
-             ))))
+           (call-with-temporary-file
+            (^[port tmpfile]
+              (with-output-to-port port
+                (^[]
+                  (guard (e [else (report-error e)])
+                         (construct-json new-json))
+                  (flush)))
+              (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
+            :directory "json")
+           'done)))
 
 (define (delete-dialog dialog-id)
   (execute-query-tree '("DELETE FROM option_flags_required "
@@ -797,8 +795,29 @@
          (update-existing-dialog await data-id form-data))))
 
 (define (convert-json-to-csv await data-id)
-  (let ((dialogs-json (read-dialogs-from-db await data-id)))
-    (overwrite-json-file await dialogs-json (json-file-path data-id))
+  (define (get-location-names)
+    (let ((results
+           (query* await
+                   '(SELECT DISTINCT "d" |.| "location" |,| "a" |.| "ascii"
+                            FROM  "dialogs" "d" |,| "ascii_names" "a"
+                            WHERE "d" |.| "scenario_id" = ?
+                            AND   "a" |.| "scenario_id" = "d" |.| "scenario_id"
+                            AND   "d" |.| "location" = "a" |.| "original"
+                            ORDER BY "a" |.| "ascii")
+                   data-id)))
+      (map-to <vector>
+              (cut match <> (#(loc ascii)
+                             `(("label" . ,loc)
+                               ("ascii" . ,ascii))))
+              results)))
+
+  (let ((dialogs-json (read-dialogs-from-db await data-id))
+        (locations-json (get-location-names)))
+    (overwrite-json-file await
+                         `(("version" . "1.0")
+                           ("locations" . ,locations-json)
+                           ("dialogs" . ,dialogs-json))
+                         (json-file-path data-id))
 
     (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
           (line-port (open-output-file "csv/Dialogs_lines.csv"))
