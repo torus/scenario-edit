@@ -811,10 +811,24 @@
                                ("ascii" . ,ascii))))
               results)))
 
+  (define (get-title)
+    (let ((results
+           (query* await
+                   '(SELECT "title"
+                            FROM  "scenarios"
+                            WHERE "scenario_id" = ?
+                            LIMIT 1)
+                   data-id)))
+      (match results
+             ((#(title)) title)
+             (()         "Untitled"))))
+
   (let ((dialogs-json (read-dialogs-from-db await data-id))
-        (locations-json (get-location-names)))
+        (locations-json (get-location-names))
+        (title (get-title)))
     (overwrite-json-file await
                          `(("version" . "1.0")
+                           ("title" . ,title)
                            ("locations" . ,locations-json)
                            ("dialogs" . ,dialogs-json))
                          (json-file-path data-id))
@@ -1301,6 +1315,34 @@
                    lines))))))
 
 (define (convert-scenario-file-to-relations await id)
+  (define (put-dialogs json)
+    (let ((dialog-order 0))
+      (for-each
+       (^[dialog]
+         (convert-dialog-to-relations await id dialog dialog-order)
+         (set! dialog-order (+ dialog-order 1024)))
+       (json-query json '("dialogs")))))
+
+  (define (put-title json)
+    (query* await
+            '(INSERT OR REPLACE INTO "scenarios" ("scenario_id" |,| "title")
+                     VALUES (? |,| ?))
+            id (json-query json '("title"))))
+
+  (define (put-ascii-names json)
+    (query* await
+            `(DELETE FROM "ascii_names" WHERE "scenario_id" = ,(x->number id)
+                     |;|
+                     INSERT INTO "ascii_names"
+                     ("original" |,| "scenario_id" |,| "ascii")
+                     VALUES
+                     ,@(match (json-query json '("locations"))
+                              (#((("label" . label) ("ascii" . ascii)) ...)
+                               (intersperse
+                                '|,| (map (^[l a]
+                                            `(,l |,| ,(x->number id) |,| ,a))
+                                          label ascii)))))))
+
   (execute-query-tree '("BEGIN TRANSACTION"))
   (guard (e [else (report-error e)
                   (execute-query-tree '("ROLLBACK"))
@@ -1323,13 +1365,10 @@
                     ))))
              rset)))
 
-         (let ((json (read-scenario-file await id))
-               (dialog-order 0))
-           (for-each
-            (^[dialog]
-              (convert-dialog-to-relations await id dialog dialog-order)
-              (set! dialog-order (+ dialog-order 1024)))
-            (json-query json '("dialogs")))
+         (let ((json (read-scenario-file await id)))
+           (put-title json)
+           (put-dialogs json)
+           (put-ascii-names json)
            )
 
          (execute-query-tree '("COMMIT"))
@@ -1340,7 +1379,6 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
                         "  scenario_id INTEGER PRIMARY KEY"
                         ", title       TEXT NOT NULL"
-                        ", initial_location INTEGER"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
                         "  dialog_id   INTEGER PRIMARY KEY"
