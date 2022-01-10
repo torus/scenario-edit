@@ -19,6 +19,8 @@
                  (loop (cdr lis) (cons #"\"~(dbi-escape-sql conn e)\"" tree)))
                 ((pair? e)
                  (loop (cdr lis) (cons (list "(" (build-query conn e) ")") tree)))
+                ((number? e)
+                 (loop (cdr lis) (cons (number->string e) tree)))
                 ((null? e)
                  (loop (cdr lis) (cons (list "(" ")") tree)))
                 ))))
