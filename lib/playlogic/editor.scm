@@ -967,7 +967,7 @@
      ((portal)       "walking")
      ((inspection)   "search")
      ((conversation) "comment")
-     ((area          "sign-in-alt"))
+     ((area)         "sign-in-alt")
      (else           "question"))))
 
 (define (get-ascii-name await data-id loc)
