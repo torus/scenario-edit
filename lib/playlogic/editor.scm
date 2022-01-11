@@ -1,6 +1,8 @@
 (define-module playlogic.editor
   (use gauche.collection)
 
+  (use srfi-98)                         ; get-environment-variable
+
   (use file.util)
   (use rfc.json)
   (use text.csv)
@@ -1086,9 +1088,15 @@
                            (show-record conv))
                          content)))))))
 
+(define cdn-domain
+  (let ((var (get-environment-variable "CDN_HOST")))
+    (if var
+        #"//~var"
+        "")))
+
 (define (location-image-url await data-id loc)
   (let ((ascii-name (get-ascii-name await data-id loc)))
-    #"/static/gameassets/~|data-id|/images/locations/~|ascii-name|.jpg"))
+    #"~|cdn-domain|/static/gameassets/~|data-id|/images/locations/~|ascii-name|.jpg"))
 
 (define (render-location-graph await data-id)
   (define (render-links-page links)
