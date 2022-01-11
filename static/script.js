@@ -132,6 +132,21 @@ function setup_form(form) {
     update_form()
 }
 
+function update_title_by_hash(anchor) {
+    const a = anchor || document.createElement('a')
+    if (!anchor)
+        a.setAttribute('href', location.href)
+    if (!a.hash)
+        return
+
+    const elem = document.querySelector(decodeURI(a.hash))
+    console.log('update_title_by_hash', elem)
+    if (elem) {
+        const title = elem.querySelector('h4').innerText.trim()
+        document.title = title
+    }
+}
+
 const form = document.querySelector('#edit-form')
 if (form)
     setup_form(form)
@@ -148,3 +163,9 @@ if (/\/play\/\d+$/.test(location.href)) {
             + '場所の悦明'
     }
 }
+
+document.querySelectorAll('a.anchor').forEach(e => {
+    e.addEventListener('click', ev => update_title_by_hash(e))
+})
+
+update_title_by_hash()

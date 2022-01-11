@@ -170,6 +170,10 @@
               ,(container/
                 `(div (@ (class "columns is-vcentered"))
                       ,@additioanl-elements
+                      (div (@ (class "column is-1"))
+                           (a (@ (class "button is-white anchor")
+                                 (href ,#"#label-~label"))
+                              ,(fas-icon "anchor")))
                       (div (@ (class "column is-one-third"))
                            (h4 (@ (class "title is-4"))
                                ,(icon-for-type type) " " ,label))
