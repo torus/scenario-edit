@@ -8,3 +8,4 @@ data/
 /BUILT
 *.db
 *:Zone.Identifier
+*.env

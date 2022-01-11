@@ -12,11 +12,7 @@ services:
     expose:
       - "2222"
     entrypoint: make run
-    environment:
-      VIRTUAL_HOST: ukiyo-96814.seaknot.dev
-      LETSENCRYPT_HOST: ukiyo-96814.seaknot.dev
-      LETSENCRYPT_EMAIL: toru-letsencrypt-ukiyo@torus.jp
-      CDN_HOST: d2qngwm4cztnic.cloudfront.net
+    env_file: ukiyo.env
 networks:
    default:
       external:
