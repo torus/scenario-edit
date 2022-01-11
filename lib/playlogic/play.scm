@@ -123,13 +123,15 @@
                    ,(show-game-state await data-id session-id session
                                      cur-dialog-id))
               (div (@ (class "column"))
+                   ,content
                    (div (@ (class "columns"))
                         (div (@ (class "column")) "")
-                        (div (@ (class "column is-9"))
-                             (img (@ (src ,(location-image-url await data-id
-                                                               loc)))))
+                        (div (@ (class "column is-9")
+                                (style "max-height: 800px"))
+                             (img (@ (src ,(location-image-url
+                                            await data-id loc)))))
                         (div (@ (class "column")) ""))
-                   ,content))))))
+                   ))))))
 
 (define (play-game! await data-id session-id)
   (cons
