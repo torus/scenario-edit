@@ -16,4 +16,4 @@ services:
 networks:
    default:
       external:
-         name: seaknotweb_default
+         name: nginxproxy_default
