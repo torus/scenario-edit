@@ -18,22 +18,15 @@
 
 (select-module playlogic)
 
-(define-syntax ok
-  (syntax-rules ()
-    [(_ req title elements ...)
-     (guard (e [else (report-error e)
-                     (respond/ng req 500 :body (create-error-page e))])
-            (respond/ok req (cons "<!DOCTYPE html>"
-                                  (sxml:sxml->html
-                                   (create-page/title title elements ...)))))]))
-(define-syntax ok*
-  (syntax-rules ()
-    [(_ req elements)
-     (guard (e [else (report-error e)
-                     (respond/ng req 500 :body (create-error-page e))])
-            (respond/ok req (cons "<!DOCTYPE html>"
-                                  (sxml:sxml->html
-                                   (apply create-page/title elements)))))]))
+(define (ok req title . elements)
+  (respond/ok req (cons "<!DOCTYPE html>"
+                        (sxml:sxml->html
+                         (apply create-page/title title elements)))))
+
+(define (ok* req . title&elements)
+  (respond/ok req (cons "<!DOCTYPE html>"
+                        (sxml:sxml->html
+                         (apply create-page/title title&elements)))))
 
 (define (create-error-page e)
   (cons "<!DOCTYPE html>"
@@ -49,7 +42,9 @@
   (^[req app]
     (violet-async
      (^[await]
-       (proc await req app)))))
+       (guard (e [else (report-error e)
+                       (respond/ng req 500 :body (create-error-page e))])
+              (proc await req app))))))
 
 (define (handle-request/post proc)
   (with-post-parameters
@@ -110,17 +105,17 @@
                           "Back to Scenario"))))
          ))))
 
-  (define-http-handler #/^\/scenarios\/(\d+)\/submit\/(.*)/
+  (define-http-handler (POST) #/^\/scenarios\/(\d+)\/submit\/(.*)/
     (handle-request/post
      (^[await req app]
        (let-params req ([id "p:1"]
                         [label "p:2"]
                         [json "q"])
-         (let ((result (update-with-json await id json)))
-           (respond/redirect
-            req #"/scenarios/~|id|#label-~label"))))))
+         (update-with-json await id json)
+         (respond/redirect
+          req #"/scenarios/~|id|#label-~label")))))
 
-  (define-http-handler #/^\/scenarios\/(\d+)\/delete/
+  (define-http-handler (POST) #/^\/scenarios\/(\d+)\/delete/
     (handle-request/post
      (^[await req app]
        (let-params req ([id "p:1"]
@@ -146,7 +141,7 @@
                (scenario-page-header await id)
                rendered))))))
 
-  (define-http-handler #/^\/scenarios\/(\d+)\/update-ascii-name$/
+  (define-http-handler (POST) #/^\/scenarios\/(\d+)\/update-ascii-name$/
     (handle-request/post
      (^[await req app]
        (let-params req ([id "p:1"]
@@ -154,9 +149,7 @@
                         [input-ascii "q"])
          (set-ascii-name await id input-original input-ascii)
          (respond/redirect
-          req
-          #"/scenarios/~|id|/locations/~input-original")
-         ))))
+          req #"/scenarios/~|id|/locations/~input-original")))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/location-graph$/
     (handle-request
@@ -177,10 +170,10 @@
     (handle-request
      (^[await req app]
        (let-params req ([id "p:1"])
-         (let ((result (convert-scenario-file-to-relations await id)))
-           (ok req "データ変換"
-               result " " `(a (@ (href ,#"/scenarios/~id"))
-                              "Back to Scenario")))))))
+         (ok req "データ変換"
+             (convert-scenario-file-to-relations await id)
+             " " `(a (@ (href ,#"/scenarios/~id"))
+                     "Back to Scenario"))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)$/
     (handle-request
@@ -215,7 +208,7 @@
          (ok* req (play-show-session await id session-id))
          ))))
 
-  (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/session\/update$/
+  (define-http-handler (POST) #/^\/scenarios\/(\d+)\/play\/(\d+)\/session\/update$/
     (handle-request/post
      (^[await req app]
        (let-params req ([id         "p:1"]
