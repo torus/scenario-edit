@@ -3,8 +3,8 @@
 
   (use makiki)
 
-  (add-load-path "../gosh-modules/net-twitter" :relative)
-  (add-load-path "../gosh-modules/net-twitter/Gauche-net-oauth" :relative)
+  (add-load-path "../../gosh-modules/net-twitter" :relative)
+  (add-load-path "../../gosh-modules/net-oauth" :relative)
 
   (use net.oauth)
   (use net.twitter)

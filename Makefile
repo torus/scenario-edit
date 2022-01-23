@@ -1,7 +1,7 @@
 SCRIPT=main.scm
 
 BUILT:
-	rh1 install | tee $@
+	rh1 install | tee $@ || rm -f $@
 
 run: BUILT
 	nodemon -e scm --ignore gosh-modules/ --exec violet $(SCRIPT)

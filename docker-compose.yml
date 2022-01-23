@@ -4,15 +4,15 @@ services:
     build: .
     volumes:
       - .:/code
-      - ../Ukiyo/Dev/Dialogues/json:/code/json
-      - ../Ukiyo/Dev/Dialogues:/code/csv
-      - ../Ukiyo/Dev/Dialogues/images:/code/static/gameassets
+      - ../pl-data/Dialogues/json:/code/json
+      - ../pl-data/Dialogues:/code/csv
+      - ../pl-data/Dialogues/images:/code/static/gameassets
     ports:
       - "2227:2222"
     expose:
       - "2222"
     entrypoint: make run
-    env_file: ukiyo.env
+    env_file: playlogic.env
 networks:
    default:
       external:
