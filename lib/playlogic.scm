@@ -44,23 +44,32 @@
      (^[await]
        (guard (e [else (report-error e)
                        (respond/ng req 500 :body (create-error-page e))])
+              (let ((sess (request-cookie-ref req "sessionid")))
+                (if sess
+                    (proc await req app)
+                    (respond/redirect req "/twitauth"))))))))
+
+(define (handle-request/no-auth proc)
+  (^[req app]
+    (violet-async
+     (^[await]
+       (guard (e [else (report-error e)
+                       (respond/ng req 500 :body (create-error-page e))])
               (proc await req app))))))
 
 (define (handle-request/post proc)
   (with-post-parameters
-   (^[req app]
-     (violet-async
-      (^[await]
-        (proc await req app))))))
+   (handle-request proc)))
 
 (define (playlogic-start!)
   (define-http-handler "/"
     (handle-request
      (^[await req app]
        (ok req "PlayLogic Scenario Editor"
-           `(container/
-             (ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
+           (container/
+            `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
                  (li (a (@ (href "/scenarios/2")) "Scenario #2"))
+                 (li (a (@ (href "/twitauth")) "Login with Twitter"))
                  (li (a (@ (href "/admin/setup")) "Setup"))))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)$/
@@ -220,13 +229,13 @@
          ))))
 
   (define-http-handler "/twitauth"
-    (handle-request
+    (handle-request/no-auth
      (^[await req app]
        (ok req "Login with Twitter"
            (session-show-login-page await req)))))
 
   (define-http-handler "/twcallback"
-    (handle-request
+    (handle-request/no-auth
      (^[await req app]
        (ok req "Login with Twitter"
            (session-verify-auth await req)))))

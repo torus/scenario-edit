@@ -1458,4 +1458,14 @@
                         ", scenario_id INTEGER NOT NULL"
                         ", ascii       TEXT NOT NULL"
                         ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS sessions ("
+                        "  session_id TEXT NOT NULL"
+                        ", user_id    TEXT PRIMARY KEY"
+                        ")"))
+
+  (execute-query-tree '("CREATE TABLE IF NOT EXISTS users ("
+                        "  user_id      TEXT PRIMARY KEY"
+                        ", display_name TEXT NOT NULL"
+                        ")"))
   )
