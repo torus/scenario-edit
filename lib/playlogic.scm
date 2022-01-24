@@ -1,4 +1,6 @@
 (define-module playlogic
+  (use srfi-98)                         ; get-environment-variable
+
   (use violet)
   (use makiki)
 
@@ -39,15 +41,17 @@
                  (pre ,(report-error e #f))))))))
 
 (define (handle-request proc)
-  (^[req app]
-    (violet-async
-     (^[await]
-       (guard (e [else (report-error e)
-                       (respond/ng req 500 :body (create-error-page e))])
-              (let ((sess (request-cookie-ref req "sessionid")))
-                (if (and sess (valid-session-id? await (cadr sess)))
-                    (proc await req app)
-                    (respond/redirect req "/twitauth"))))))))
+  (if (get-environment-variable "NOAUTH")
+      (handle-request/no-auth proc)
+      (^[req app]
+        (violet-async
+         (^[await]
+           (guard (e [else (report-error e)
+                           (respond/ng req 500 :body (create-error-page e))])
+                  (let ((sess (request-cookie-ref req "sessionid")))
+                    (if (and sess (valid-session-id? await (cadr sess)))
+                        (proc await req app)
+                        (respond/redirect req "/twitauth")))))))))
 
 (define (handle-request/no-auth proc)
   (^[req app]
