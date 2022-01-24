@@ -1460,8 +1460,8 @@
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS sessions ("
-                        "  session_id TEXT NOT NULL"
-                        ", user_id    TEXT PRIMARY KEY"
+                        "  session_id TEXT PRIMARY KEY"
+                        ", user_id    TEXT NOT NULL"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS users ("
