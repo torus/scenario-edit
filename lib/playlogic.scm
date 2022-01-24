@@ -45,7 +45,7 @@
        (guard (e [else (report-error e)
                        (respond/ng req 500 :body (create-error-page e))])
               (let ((sess (request-cookie-ref req "sessionid")))
-                (if sess
+                (if (and sess (valid-session-id? await (cadr sess)))
                     (proc await req app)
                     (respond/redirect req "/twitauth"))))))))
 

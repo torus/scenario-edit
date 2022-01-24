@@ -15,16 +15,19 @@
   (use playlogic.editor)
 
   (export session-show-login-page
-          session-verify-auth))
+          session-verify-auth
+          valid-session-id?))
 
 (select-module playlogic.session)
 
+(define (valid-session-id? await session-id)
+  (pair? (query* await '(SELECT 1 FROM sessions
+                                WHERE "session_id" = ?)
+                 session-id)))
+
 (define (session-show-login-page await req)
   (let-params req ([session-id "c:sessionid"])
-    (if (and session-id
-             (pair? (query* await '(SELECT 1 FROM sessions
-                                           WHERE "session_id" = ?)
-                            session-id)))
+    (if (and session-id (valid-session-id? await session-id))
         (container/
          '(p "You have been already logged in. "
              (a (@ (href "/")) "Back to Home")))
@@ -49,7 +52,7 @@
                                        (~ *twitter-creds* session-id))))))
       (if temp-cred
           (begin
-            (let* ((cred #?=(twitter-authorize temp-cred #?=verifier))
+            (let* ((cred (twitter-authorize temp-cred verifier))
                    (acc (twitter-account:verify-credentials/json cred)))
               (let ((twitter-id (cdr (assoc "id" acc)))
                     (screen-name (cdr (assoc "screen_name" acc))))
