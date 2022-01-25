@@ -6,13 +6,12 @@
   (use util.match)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
-  (use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use json-match)
   (use query)
   (use playlogic.editor)
+  (use playlogic.datastore)
 
   (export play-game!
           play-game/dialog!

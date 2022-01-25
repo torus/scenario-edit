@@ -6,21 +6,18 @@
   (use file.util)
   (use rfc.json)
   (use text.csv)
-  (use text.tree)
   (use util.match)
 
   (use makiki)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
-  (use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use json-match)
   (use query)
+  (use playlogic.datastore)
 
-  (export *sqlite-conn*
-          read-and-render-scenario-file
+  (export read-and-render-scenario-file
           read-and-render-scenario-file/edit
           read-and-render-scenario-file/insert
           convert-json-to-csv
@@ -42,10 +39,6 @@
 
           fas-icon
           icon-for-type
-
-          ;; query
-          with-query-result/tree
-          query*
           ))
 
 (select-module playlogic.editor)
@@ -705,14 +698,14 @@
 (define (overwrite-json-file await new-json filename)
   (await (^[]
            (call-with-temporary-file
-            (^[port tmpfile]
-              (with-output-to-port port
-                (^[]
-                  (guard (e [else (report-error e)])
-                         (construct-json new-json))
-                  (flush)))
-              (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
-            :directory "json")
+               (^[port tmpfile]
+                 (with-output-to-port port
+                   (^[]
+                     (guard (e [else (report-error e)])
+                            (construct-json new-json))
+                     (flush)))
+                 (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
+             :directory "json")
            'done)))
 
 (define (delete-dialog dialog-id)
@@ -1200,44 +1193,12 @@
                             show-location
                             (map vector->list results)))))))))
 
-;; SQLite
-
-(define *sqlite-conn* #f)
-
-(define (query* await query . params)
-  (with-query-result/tree
-   await (build-query *sqlite-conn* query) params
-   (^[rset]
-     (if (is-a? rset <relation>)
-         (relation-rows rset)
-         rset))))
-
-(define (with-query-result await str args proc)
-  (let ((rset (await (^[] (apply dbi-do *sqlite-conn* str '() args)))))
-    (let ((result (proc rset)))
-      (dbi-close rset)
-      result)))
-
-(define (with-query-result/tree await tree args proc)
-  (with-query-result await (tree->string tree) args proc))
-
-(define (with-query-result/tree* await tree args proc)
-  (let ((query-str (tree->string (build-query *sqlite-conn* tree))))
-    (with-query-result await query-str args proc)))
-
-(define (execute-query str args)
-  (guard (e [else (report-error e)])
-         (apply dbi-do *sqlite-conn* str '() args)))
-
-(define (execute-query-tree tree . args)
-  (execute-query (tree->string tree) args))
-
 (define (convert-dialog-to-relations await id dialog dialog-order)
   (define (add-line line dialog-id line-order)
     (let ((character (cdr (assoc "character" line)))
           (text (cdr (assoc "text" line)))
           (options (let1 opt (assoc "options" line)
-                         (if opt (cdr opt) ()))))
+                     (if opt (cdr opt) ()))))
       (with-query-result/tree
        await
        '("INSERT INTO lines (dialog_id, ord, character, text)"
@@ -1393,79 +1354,3 @@
          (execute-query-tree '("COMMIT"))
          (print #"Transaction done!")
          "DONE AND DONE!"))
-
-(define (create-tables)
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
-                        "  scenario_id INTEGER PRIMARY KEY"
-                        ", title       TEXT NOT NULL"
-                        ")"))
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
-                        "  dialog_id   INTEGER PRIMARY KEY"
-                        ", scenario_id INTEGER NOT NULL"
-                        ", ord         INTEGER NOT NULL"
-                        ", label       TEXT NOT NULL"
-                        ", location    TEXT NOT NULL"
-                        ", type        TEXT NOT NULL"
-                        ", trigger     TEXT NOT NULL"
-                        ")"))
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS lines ("
-                        "  line_id     INTEGER PRIMARY KEY"
-                        ", dialog_id   INTEGER NOT NULL"
-                        ", ord         INTEGER NOT NULL"
-                        ", character   TEXT NOT NULL"
-                        ", text        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_required ("
-                        "  dialog_id   INTEGER NOT NULL"
-                        ", flag        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_exclusive ("
-                        "  dialog_id   INTEGER NOT NULL"
-                        ", flag        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS flags_set ("
-                        "  dialog_id   INTEGER NOT NULL"
-                        ", flag        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS options ("
-                        "  option_id   INTEGER PRIMARY KEY"
-                        ", line_id     INTEGER NOT NULL"
-                        ", ord         INTEGER NOT NULL"
-                        ", text        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_flags_required ("
-                        "  option_id   INTEGER NOT NULL"
-                        ", flag        TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS option_jumps ("
-                        "  option_id   INTEGER NOT NULL"
-                        ", destination TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS portals ("
-                        "  dialog_id   INTEGER PRIMARY KEY"
-                        ", destination INTEGER NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS ascii_names ("
-                        "  original    TEXT PRIMARY KEY"
-                        ", scenario_id INTEGER NOT NULL"
-                        ", ascii       TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS sessions ("
-                        "  session_id TEXT PRIMARY KEY"
-                        ", user_id    TEXT NOT NULL"
-                        ")"))
-
-  (execute-query-tree '("CREATE TABLE IF NOT EXISTS users ("
-                        "  user_id      TEXT PRIMARY KEY"
-                        ", display_name TEXT NOT NULL"
-                        ")"))
-  )

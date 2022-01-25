@@ -14,4 +14,7 @@
 (import playlogic.session)
 (test-module 'playlogic.session)
 
+(import playlogic.datastore)
+(test-module 'playlogic.datastore)
+
 (test-end :exit-on-failure #t)

@@ -14,9 +14,9 @@
   (use playlogic.editor)
   (use playlogic.play)
   (use playlogic.session)
+  (use playlogic.datastore)
 
-  (export playlogic-start!
-          ))
+  (export playlogic-start!))
 
 (select-module playlogic)
 

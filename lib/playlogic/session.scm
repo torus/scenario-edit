@@ -13,6 +13,7 @@
   (use net.twitter.auth)
 
   (use playlogic.editor)
+  (use playlogic.datastore)
 
   (export session-show-login-page
           session-verify-auth
