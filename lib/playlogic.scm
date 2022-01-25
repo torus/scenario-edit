@@ -25,7 +25,7 @@
                         (sxml:sxml->html
                          (apply create-page/title title elements)))))
 
-(define (ok* req . title&elements)
+(define (ok* req title&elements)
   (respond/ok req (cons "<!DOCTYPE html>"
                         (sxml:sxml->html
                          (apply create-page/title title&elements)))))
