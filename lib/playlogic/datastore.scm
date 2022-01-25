@@ -1,11 +1,4 @@
 (define-module playlogic.datastore
-  ;; (use srfi-98)                         ; get-environment-variable
-
-  ;; (use violet)
-  ;; (use makiki)
-
-  ;; (use sxml.tools)
-
   (use text.tree)
 
   (use dbi)
@@ -15,18 +8,9 @@
   (add-load-path "." :relative)
   (use query)
 
-  ;; (use playlogic.editor)
-  ;; (use playlogic.play)
-  ;; (use playlogic.session)
-
-  (export *sqlite-conn*
-          query*
-          with-query-result
-          with-query-result/tree
-          with-query-result/tree*
-          execute-query
-          execute-query-tree
-          create-tables))
+  (export query*
+          create-tables
+          datastore-connect!))
 
 (select-module playlogic.datastore)
 
@@ -35,6 +19,12 @@
 ;; SQLite
 
 (define *sqlite-conn* #f)
+
+(define (datastore-connect!)
+  (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
+    (set! *sqlite-conn* conn)
+    (print "Sqlite connected")
+    (flush)))
 
 (define (query* await query . params)
   (with-query-result/tree

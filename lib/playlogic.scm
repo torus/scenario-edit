@@ -6,10 +6,6 @@
 
   (use sxml.tools)
 
-  (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
-  (use dbd.sqlite)
-
   (add-load-path "." :relative)
   (use playlogic.editor)
   (use playlogic.play)
@@ -244,10 +240,7 @@
        (ok req "Login with Twitter"
            (session-verify-auth await req)))))
 
-  (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
-    (set! *sqlite-conn* conn)
-    (print "Sqlite connected")
-    (flush)))
+  (datastore-connect!))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;

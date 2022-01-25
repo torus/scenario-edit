@@ -133,22 +133,17 @@
     `(div (@ (class "columns"))
           (div (@ (class "column"))
                ,(fas-icon "walking") " " ,dest " "
-               ,(with-query-result/tree
-                 await
-                 (build-query
-                  *sqlite-conn*
-                  `(SELECT DISTINCT "location" FROM "dialogs"
-                           WHERE "type" = "portal"
-                           AND "trigger" = ?))
-                 `(,dest)
-                 (^[rset]
-                   (map
-                    (^[row]
-                      (let ((loc (vector-ref row 0)))
-                        `(,(fas-icon "map-marker-alt")
-                          (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                             ,loc))))
-                    rset))))))
+               ,(map
+                 (^[row]
+                   (let ((loc (vector-ref row 0)))
+                     `(,(fas-icon "map-marker-alt")
+                       (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                          ,loc))))
+                 (query* await
+                         '(SELECT DISTINCT "location" FROM "dialogs"
+                                  WHERE "type" = "portal"
+                                  AND "trigger" = ?)
+                         dest)))))
 
   (let ((label     (get "label"))
         (lines     (get "lines"))
@@ -471,56 +466,45 @@
       ("trigger" . ,trigger)
       ("ord" . ,ord)
       ("lines" .
-       ,(with-query-result/tree
-         await
-         '("SELECT line_id, character, text, ord"
-           " FROM lines"
-           " WHERE dialog_id = ?"
-           " ORDER by ord")
-         `(,dialog-id)
-         (^[rset]
-           (map-to <vector>
-                   (^[row]
-                     (read-line-from-db await row))
-                   rset))))
+       ,(map-to <vector>
+                (^[row]
+                  (read-line-from-db await row))
+                (query* await
+                        '(SELECT "line_id" |,| "character" |,| "text" |,| "ord"
+                                 FROM "lines"
+                                 WHERE "dialog_id" = ?
+                                 ORDER BY "ord")
+                        dialog-id)))
       ("flags-required" .
-       ,(with-query-result/tree
-         await
-         '("SELECT flag"
-           " FROM flags_required"
-           " WHERE dialog_id = ?")
-         `(,dialog-id)
-         (^[rset]
-           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+       ,(map-to <vector> (^[row] (read-flags-from-db await row))
+                (query* await
+                        '(SELECT "flag"
+                                 FROM "flags_required"
+                                 WHERE "dialog_id" = ?)
+                        dialog-id)))
       ("flags-exclusive" .
-       ,(with-query-result/tree
-         await
-         '("SELECT flag"
-           " FROM flags_exclusive"
-           " WHERE dialog_id = ?")
-         `(,dialog-id)
-         (^[rset]
-           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+       ,(map-to <vector> (^[row] (read-flags-from-db await row))
+                (query* await
+                        '(SELECT "flag"
+                                 FROM "flags_exclusive"
+                                 WHERE "dialog_id" = ?)
+                        dialog-id)))
       ("flags-set" .
-       ,(with-query-result/tree
-         await
-         '("SELECT flag"
-           " FROM flags_set"
-           " WHERE dialog_id = ?")
-         `(,dialog-id)
-         (^[rset]
-           (map-to <vector> (^[row] (read-flags-from-db await row)) rset))))
+       ,(map-to <vector> (^[row] (read-flags-from-db await row))
+                (query* await
+                        '(SELECT "flag"
+                                 FROM "flags_set"
+                                 WHERE "dialog_id" = ?)
+                        dialog-id)))
 
       ,@(if (string=? typ "portal")
             `(("portal-destination" .
-               ,(with-query-result/tree
-                 await
-                 '("SELECT destination"
-                   " FROM portals"
-                   " WHERE dialog_id = ?")
-                 `(,dialog-id)
-                 (^[rset]
-                   (car (map (^[row] (vector-ref row 0)) rset))))))
+               ,(car (map (^[row] (vector-ref row 0))
+                          (query* await
+                                  '(SELECT "destination"
+                                           FROM "portals"
+                                           WHERE "dialog_id" = ?)
+                                  dialog-id)))))
             ()))))
 
 (define (read-flags-from-db await row)
@@ -537,37 +521,31 @@
       ("ord" . ,ord)
       ("text" . ,text)
       ("options" .
-       ,(with-query-result/tree
-         await
-         '("SELECT option_id, text FROM options"
-           " WHERE line_id = ? ORDER BY ord")
-         `(,line-id)
-         (^[rset]
-           (map-to <vector>
-                   (^[row]
-                     (read-option-from-db await row))
-                   rset)))))))
+       ,(map-to <vector>
+                (^[row]
+                  (read-option-from-db await row))
+                (query* await
+                        '(SELECT "option_id" |,| "text" FROM "options"
+                                 WHERE "line_id" = ?
+                                 ORDER BY "ord")
+                        line-id))))))
 
 (define (read-option-from-db await row)
   (let ((option-id (vector-ref row 0))
         (text (vector-ref row 1)))
     `(("text" . ,text)
       ("flags-required" .
-       ,(with-query-result/tree
-         await
-         '("SELECT flag FROM option_flags_required"
-           " WHERE option_id = ?")
-         `(,option-id)
-         (^[rset]
-           (map-to <vector> (^[row] (vector-ref row 0)) rset))))
+       ,(map-to <vector> (^[row] (vector-ref row 0))
+                (query* await
+                        '(SELECT "flag" FROM "option_flags_required"
+                                 WHERE "option_id" = ?)
+                        option-id)))
       ("jump-to" .
-       ,(with-query-result/tree
-         await
-         '("SELECT destination FROM option_jumps"
-           " WHERE option_id = ?")
-         `(,option-id)
-         (^[rset]
-           (map-to <vector> (^[row] (vector-ref row 0)) rset)))))))
+       ,(map-to <vector> (^[row] (vector-ref row 0))
+                (query* await
+                        '(SELECT "destination" FROM "option_jumps"
+                                 WHERE "option_id" = ?)
+                        option-id))))))
 
 (define (read-and-render-scenario-file await id)
   (define (label-of conv)
@@ -708,61 +686,55 @@
              :directory "json")
            'done)))
 
-(define (delete-dialog dialog-id)
-  (execute-query-tree '("DELETE FROM option_flags_required "
-                        " WHERE option_id in "
-                        " (SELECT option_id FROM options WHERE line_id in"
-                        "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                      dialog-id)
+(define (delete-dialog await dialog-id)
+  (query* await
+          '(DELETE FROM "option_flags_required"
+                   WHERE "option_id" IN
+                   (SELECT "option_id" FROM "options" WHERE "line_id" IN
+                           (SELECT "line_id" FROM "lines"
+                                   WHERE "dialog_id" = ?)))
+          dialog-id)
 
-  (execute-query-tree '("DELETE FROM option_jumps "
-                        " WHERE option_id in "
-                        " (SELECT option_id FROM options WHERE line_id in"
-                        "   (SELECT line_id FROM lines WHERE dialog_id = ?))")
-                      dialog-id)
+  (query* await
+          '(DELETE FROM "option_jumps"
+                   WHERE "option_id" IN
+                   (SELECT "option_id" FROM "options" WHERE "line_id" IN
+                           (SELECT "line_id" FROM "lines"
+                                   WHERE "dialog_id" = ?)))
+          dialog-id)
 
-  (execute-query-tree '("DELETE FROM options "
-                        " WHERE line_id in "
-                        " (SELECT line_id FROM lines WHERE dialog_id = ?)")
-                      dialog-id)
+  (query* await
+          '(DELETE FROM "options"
+                   WHERE "line_id" IN
+                   (SELECT "line_id" FROM "lines" WHERE "dialog_id" = ?))
+          dialog-id)
 
-  (execute-query-tree '("DELETE FROM lines WHERE dialog_id = ?")
-                      dialog-id)
+  (query* await '(DELETE FROM "lines" WHERE "dialog_id" = ?) dialog-id)
 
-  (execute-query-tree '("DELETE FROM flags_required WHERE dialog_id = ?")
-                      dialog-id)
-  (execute-query-tree '("DELETE FROM flags_exclusive WHERE dialog_id = ?")
-                      dialog-id)
-  (execute-query-tree '("DELETE FROM flags_set WHERE dialog_id = ?")
-                      dialog-id)
-
-  (execute-query-tree '("DELETE FROM dialogs WHERE dialog_id = ?")
-                      dialog-id))
+  (query* await '(DELETE FROM "flags_required" WHERE "dialog_id" = ?) dialog-id)
+  (query* await '(DELETE FROM "flags_exclusive" WHERE "dialog_id" = ?) dialog-id)
+  (query* await '(DELETE FROM "flags_set" WHERE "dialog_id" = ?) dialog-id)
+  (query* await '(DELETE FROM "dialogs" WHERE "dialog_id" = ?) dialog-id))
 
 (define (delete-existing-dialogs await data-id label)
   (define last-order 0)
+  (for-each
+   (^[row]
+     (await
+      (^[]
+        (let ((dialog-id (vector-ref row 0))
+              (ord (vector-ref row 1)))
+          (print #"Found dialog ~|dialog-id| to delete.")
 
-  (with-query-result/tree
-   await
-   '("SELECT dialog_id, ord FROM dialogs"
-     " WHERE label = ? AND scenario_id = ?")
-   `(,label ,data-id)
-   (^[rset]
-     (for-each
-      (^[row]
-        (await
-         (^[]
-           (let ((dialog-id (vector-ref row 0))
-                 (ord (vector-ref row 1)))
-             (print #"Found dialog ~|dialog-id| to delete.")
+          (delete-dialog await dialog-id)
 
-             (delete-dialog dialog-id)
+          (set! last-order ord)
 
-             (set! last-order ord)
-
-             ))))
-      rset)
-     ))
+          ))))
+   (query* await
+           '(SELECT "dialog_id" |,| "ord" FROM "dialogs"
+                    WHERE "label" = ? AND "scenario_id" = ?)
+           label data-id))
   last-order)
 
 (define (update-existing-dialog await data-id form-data)
@@ -773,13 +745,13 @@
           (error #"paramter not specified: ~|name|"))))
 
   (let ((orig-label (get "original-label")))
-    (execute-query-tree '("BEGIN TRANSACTION"))
+    (query* await '(BEGIN TRANSACTION))
     (guard (e [else (report-error e)
-                    (execute-query-tree '("ROLLBACK"))
+                    (query* await '(ROLLBACK))
                     (print #"Transaction failed!")])
            (let ((ord (delete-existing-dialogs await data-id orig-label)))
              (convert-dialog-to-relations await data-id form-data ord))
-           (execute-query-tree '("COMMIT"))
+           (query* await '(COMMIT))
            (print #"Transaction done!"))
     'done))
 
@@ -1199,74 +1171,78 @@
           (text (cdr (assoc "text" line)))
           (options (let1 opt (assoc "options" line)
                      (if opt (cdr opt) ()))))
-      (with-query-result/tree
-       await
-       '("INSERT INTO lines (dialog_id, ord, character, text)"
-         " VALUES (?, ?, ?, ?)"
-         "; SELECT last_insert_rowid()")
-       (list dialog-id line-order character text)
-       (^[rset]
-         (let ((line-id (vector-ref (car (relation-rows rset)) 0))
-               (option-order 0))
-           (add-line-details line-id option-order line options))
-         (+ line-order 1024)
-         ))
-      ))
+      (let ((rset
+             (query* await
+                     '(INSERT INTO "lines"
+                              ("dialog_id" |,| "ord"
+                               |,| "character" |,| "text")
+                              VALUES (? |,| ? |,| ? |,| ?)
+                              |;| SELECT last_insert_rowid())
+                     dialog-id line-order character text)))
+        (let ((line-id (vector-ref (car rset) 0))
+              (option-order 0))
+          (add-line-details line-id option-order line options))
+        (+ line-order 1024)
+        )))
 
   (define (add-line-details line-id option-order line options)
     (for-each
      (^[option]
-       (with-query-result/tree*
-        await
-        '(INSERT INTO "options" ("line_id" |,| "ord" |,| "text")
-                 VALUES (? |,| ? |,| ?)
-                 |;| SELECT last_insert_rowid())
-        (list line-id option-order (cdr (assoc "text" option)))
-        (^[rset]
-          (let ((option-id (vector-ref (car (relation-rows rset)) 0)))
-            (add-option-details option-id option))
-          ))
+       (let ((rset
+              (query* await
+                      '(INSERT INTO "options" ("line_id" |,| "ord" |,| "text")
+                               VALUES (? |,| ? |,| ?)
+                               |;| SELECT last_insert_rowid())
+                      line-id option-order (cdr (assoc "text" option)))))
+         (let ((option-id (vector-ref (car rset) 0)))
+           (add-option-details option-id option)))
        (set! option-order (+ option-order 1024)))
      options))
 
   (define (add-option-details option-id option)
     (for-each
      (^[flag]
-       (execute-query-tree '("INSERT INTO option_flags_required (option_id, flag)"
-                             " VALUES (?, ?)")
-                           option-id flag))
+       (query* await
+               '(INSERT INTO "option_flags_required" ("option_id" |,| "flag")
+                        VALUES (? |,| ?))
+               option-id flag))
      (cdr (or (assoc "flags-required" option) (cons 'x #()))))
     (for-each
      (^[dest]
-       (execute-query-tree '("INSERT INTO option_jumps (option_id, destination)"
-                             " VALUES (?, ?)")
-                           option-id dest))
+       (query* await
+               '(INSERT INTO "option_jumps" ("option_id" |,| "destination")
+                        VALUES (? |,| ?))
+               option-id dest))
      (cdr (or (assoc "jump-to" option) (cons 'x #())))))
 
   (define (add-dialog-flags dialog-id flags-req flags-exc flags-set)
     (for-each
      (^[flag]
-       (execute-query-tree '("INSERT INTO flags_required (dialog_id, flag)"
-                             " VALUES (?, ?)")
-                           dialog-id flag))
+       (query* await
+               '(INSERT INTO "flags_required" ("dialog_id" |,| "flag")
+                        VALUES (? |,| ?))
+               dialog-id flag))
      flags-req)
     (for-each
      (^[flag]
-       (execute-query-tree '("INSERT INTO flags_exclusive (dialog_id, flag)"
-                             " VALUES (?, ?)")
-                           dialog-id flag))
+       (query* await
+               '(INSERT INTO "flags_exclusive" ("dialog_id" |,| "flag")
+                        VALUES (? |,| ?))
+               dialog-id flag))
      flags-exc)
     (for-each
      (^[flag]
-       (execute-query-tree '("INSERT INTO flags_set (dialog_id, flag)"
-                             " VALUES (?, ?)")
-                           dialog-id flag))
+       (query* await
+               '(INSERT INTO "flags_set" ("dialog_id" |,| "flag")
+                        VALUES (? |,| ?))
+               dialog-id flag))
      flags-set))
 
   (define (add-portal dialog-id destination)
-    (execute-query-tree '("INSERT OR REPLACE INTO portals (dialog_id, destination)"
-                          " VALUES (?, ?)")
-                        dialog-id destination))
+    (query* await
+            '(INSERT OR REPLACE INTO "portals" ("dialog_id" |,| "destination")
+                     VALUES (? |,| ?))
+            dialog-id destination))
 
   (let ((label (cdr (assoc "label" dialog)))
         (location (cdr (assoc "location" dialog)))
@@ -1276,23 +1252,23 @@
         (flags-req (cdr (or (assoc "flags-required" dialog) (cons 'x #()))))
         (flags-exc (cdr (or (assoc "flags-exclusive" dialog) (cons 'x #()))))
         (flags-set (cdr (or (assoc "flags-set" dialog) (cons 'x #())))))
-    (with-query-result/tree*
-     await '(INSERT INTO "dialogs"
-                    ("scenario_id" |,| "ord" |,| "label"
-                     |,| "location" |,| "type" |,| "trigger")
-                    VALUES (? |,| ? |,| ? |,| ? |,| ? |,| ?)
-                    |;| SELECT last_insert_rowid())
-     (list id dialog-order label location type trigger)
-     (^[rset]
-       (let ((dialog-id (vector-ref (car (relation-rows rset)) 0))
-             (line-order 0))
-         (add-dialog-flags dialog-id flags-req flags-exc flags-set)
-         (when (string=? type "portal")
-           (let ((portal-destination (cdr (assoc "portal-destination" dialog))))
-             (add-portal dialog-id portal-destination)))
-         (for-each (^[line]
-                     (set! line-order (add-line line dialog-id line-order)))
-                   lines))))))
+    (let ((rset
+           (query* await
+                   '(INSERT INTO "dialogs"
+                            ("scenario_id" |,| "ord" |,| "label"
+                             |,| "location" |,| "type" |,| "trigger")
+                            VALUES (? |,| ? |,| ? |,| ? |,| ? |,| ?)
+                            |;| SELECT last_insert_rowid())
+                   id dialog-order label location type trigger)))
+      (let ((dialog-id (vector-ref (car rset) 0))
+            (line-order 0))
+        (add-dialog-flags dialog-id flags-req flags-exc flags-set)
+        (when (string=? type "portal")
+          (let ((portal-destination (cdr (assoc "portal-destination" dialog))))
+            (add-portal dialog-id portal-destination)))
+        (for-each (^[line]
+                    (set! line-order (add-line line dialog-id line-order)))
+                  lines)))))
 
 (define (convert-scenario-file-to-relations await id)
   (define (put-dialogs json)
@@ -1323,34 +1299,30 @@
                                             `(,l |,| ,(x->number id) |,| ,a))
                                           label ascii)))))))
 
-  (execute-query-tree '("BEGIN TRANSACTION"))
+  (query* await '(BEGIN TRANSACTION))
   (guard (e [else (report-error e)
-                  (execute-query-tree '("ROLLBACK"))
+                  (query* await '("ROLLBACK"))
                   (print #"Transaction failed!")
                   "FAIL!"])
-
-         (with-query-result/tree
-          await
-          '("SELECT dialog_id FROM dialogs"
-            " WHERE scenario_id = ?")
-          `(,id)
-          (^[rset]
-            (for-each
-             (^[row]
-               (await
-                (^[]
-                  (let ((dialog-id (vector-ref row 0)))
-                    (print #"Found dialog ~|dialog-id| to delete.")
-                    (delete-dialog dialog-id)
-                    ))))
-             rset)))
+         (let ((rset
+                (query* await
+                        '(SELECT "dialog_id" FROM "dialogs"
+                                 WHERE "scenario_id" = ?)
+                        id)))
+           (for-each
+            (^[row]
+              (await
+               (^[]
+                 (let ((dialog-id (vector-ref row 0)))
+                   (print #"Found dialog ~|dialog-id| to delete.")
+                   (delete-dialog await dialog-id)
+                   ))))
+            rset))
 
          (let ((json (read-scenario-file await id)))
            (put-title json)
            (put-dialogs json)
-           (put-ascii-names json)
-           )
-
-         (execute-query-tree '("COMMIT"))
+           (put-ascii-names json))
+         (query* await '(COMMIT))
          (print #"Transaction done!")
          "DONE AND DONE!"))

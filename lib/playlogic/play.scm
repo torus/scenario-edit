@@ -26,12 +26,11 @@
 
 (define (make-session await data-id)
   (define initial-loc #f)
-  (with-query-result/tree
-   await
-   '("SELECT location FROM dialogs"
-     " WHERE scenario_id = ? ORDER BY ord LIMIT 1")
-   `(,data-id)
-   (^[rset]
+  (let ((rset
+         (query* await
+                    '(SELECT "location" FROM "dialogs"
+                       WHERE "scenario_id" = ? ORDER BY "ord" LIMIT 1)
+                    data-id)))
      (for-each
       (^[row]
         (await
@@ -40,8 +39,7 @@
              (print #"location: ~loc")
              (set! initial-loc loc)
              ))))
-      rset)
-     ))
+      rset))
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
@@ -190,23 +188,14 @@
 (define (render-line await data-id session-id char text options)
   (define (render-jump label)
     (let ((dialog-id
-           (with-query-result/tree
-            await
-            (build-query *sqlite-conn* `(SELECT "dialog_id" FROM "dialogs"
-                                                WHERE "label" = ,label))
-            `()
-            (^[rset]
-              (car (map (cut vector-ref <> 0) rset))))))
-
+           (car (map (cut vector-ref <> 0)
+                     `(SELECT "dialog_id" FROM "dialogs"
+                              WHERE "label" = ,label)))))
       `((a (@ (href
                ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
            (span (@ (class "tag is-info"))
                  ,(fas-icon "arrow-circle-right") " "
-                 ,label
-                 )
-           ))
-      )
-    )
+                 ,label)))))
 
   (define (render-option o)
     `(li ,(fas-icon "angle-right")
@@ -218,8 +207,7 @@
              (if (> (vector-length jump) 0)
                  (render-jump (vector-ref jump 0))
 
-                 ()))
-         ))
+                 ()))))
 
   `(div (@ (class "columns"))
         (div (@ (class "column is-2 has-text-right"))
@@ -246,28 +234,22 @@
 (define (play-game/dialog! await data-id session-id dialog-id)
   (define (get-new-flags)
     (set-union
-     (with-query-result/tree
-      await
-      (build-query *sqlite-conn* `(SELECT "label" FROM "dialogs"
-                                          WHERE "dialog_id" = ,dialog-id))
-      `()
-      (^[rset]
-        (list->set string-comparator (map (cut vector-ref <> 0) rset))))
-
-     (with-query-result/tree
-      await
-      (build-query *sqlite-conn* `(SELECT "flag" FROM "flags_set"
-                                          WHERE "dialog_id" = ,dialog-id))
-      `()
-      (^[rset]
-        (list->set string-comparator (map (cut vector-ref <> 0) rset))))))
+     (list->set string-comparator
+                (map (cut vector-ref <> 0)
+                     (query* await
+                             `(SELECT "label" FROM "dialogs"
+                                      WHERE "dialog_id" = ,dialog-id))))
+     (list->set string-comparator
+                (map (cut vector-ref <> 0)
+                     (query* await
+                             `(SELECT "flag" FROM "flags_set"
+                                      WHERE "dialog_id" = ,dialog-id))))))
 
   (define (content)
     (let ((conv (read-dialog-from-db await dialog-id)))
       (if (pair? conv)
           (render-dialog await (car conv) data-id session-id)
-          "Dialog not found."))
-    )
+          "Dialog not found.")))
 
   (cons
    "Playing!"
@@ -289,30 +271,31 @@
   *cont-id*)
 
 (define (get-location-for-portal await dialog-id)
-  (let ((dest (with-query-result/tree
-               await
-               '("SELECT d.location"
-                 " FROM dialogs d, portals p"
-                 " WHERE p.dialog_id = ?"
-                 "   AND d.trigger = p.destination"
-                 " LIMIT 1")
-               `(,dialog-id)
-               (^[rset] (map (cut vector-ref <> 0) rset)))))
+  (let ((dest (let ((rset
+                      (query* await
+                              '(SELECT "d" |.| "location"
+                  FROM "dialogs" "d" |,| "portals" "p"
+                  WHERE "p" |.| "dialog_id" = ?
+                    AND "d" |.| "trigger" = "p" |.| "destination"
+                 LIMIT 1)
+                              dialog-id)))
+                (map (cut vector-ref <> 0) rset))))
     (car dest)))
 
 (define (read-dialog-from-db await dialog-id)
-  (with-query-result/tree
-   await
-   '("SELECT dialog_id, label, location, type, ord, trigger"
-     " FROM dialogs"
-     " WHERE dialog_id = ?"
-     " ORDER BY ord")
-   `(,dialog-id)
-   (^[rset]
-     (map
-      (^[row]
-        (read-dialog-detail-from-db await row))
-      rset))))
+  (let ((rset
+         (query*
+          await
+          '(SELECT "dialog_id" |,| "label" |,| "location"
+                   |,| "type" |,| "ord" |,| "trigger"
+                   FROM "dialogs"
+                   WHERE "dialog_id" = ?
+                   ORDER BY "ord")
+          dialog-id)))
+    (map
+     (^[row]
+       (read-dialog-detail-from-db await row))
+     rset)))
 
 (define (show-game-state await data-id session-id session cur-dialog-id)
   (define (show-portal dialog-id trigger)
@@ -338,56 +321,50 @@
             (trigger ,trigger))
          ,icon ,#" ~trigger")))
 
-  (define (query loc flags)
-    (build-query
-     *sqlite-conn*
-     `(SELECT "d" |.| "dialog_id"
-              |,| "d" |.| "type"
-              |,| "d" |.| "trigger"
-              FROM "dialogs" "d"
-              LEFT OUTER JOIN
-              (SELECT * FROM "flags_required" WHERE "flag" NOT IN
-                      ,(intersperse '|,| flags))
-              "fr"
-              ON "d" |.| "dialog_id" = "fr" |.| "dialog_id"
-              LEFT OUTER JOIN
-              (SELECT * FROM "flags_exclusive" WHERE "flag" IN
-                      ,(intersperse '|,| flags))
-              "fe"
-              ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
-              WHERE "d" |.| "location" = ,loc
-              AND "fr" |.| "flag" IS NULL
-              AND "fe" |.| "flag" IS NULL
-              ORDER BY "type")))
+  (define (get-data loc flags)
+    (query* await
+            `(SELECT "d" |.| "dialog_id"
+                     |,| "d" |.| "type"
+                     |,| "d" |.| "trigger"
+                     FROM "dialogs" "d"
+                     LEFT OUTER JOIN
+                     (SELECT * FROM "flags_required" WHERE "flag" NOT IN
+                             ,(intersperse '|,| flags))
+                     "fr"
+                     ON "d" |.| "dialog_id" = "fr" |.| "dialog_id"
+                     LEFT OUTER JOIN
+                     (SELECT * FROM "flags_exclusive" WHERE "flag" IN
+                             ,(intersperse '|,| flags))
+                     "fe"
+                     ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
+                     WHERE "d" |.| "location" = ,loc
+                     AND "fr" |.| "flag" IS NULL
+                     AND "fe" |.| "flag" IS NULL
+                     ORDER BY "type")))
 
   (define (show-options loc flags)
-    (with-query-result/tree
-     await
-     (query loc (vector->list (json-query session '("flags"))))
-     `()
-     (^[rset]
-       `(aside (@ (class "menu"))
-               (p (@ (class "menu-label"))
-                  "Options")
-               (ul (@ (class "menu-list"))
-                   ,@(map
-                      (^[row]
-                        (await
-                         (^[]
-                           (let ((dialog-id (vector-ref row 0))
-                                 (type      (vector-ref row 1))
-                                 (trigger   (vector-ref row 2)))
-                             (case (string->symbol type)
-                               ((portal)
-                                (show-portal dialog-id trigger))
-                               (else
-                                (show-option dialog-id trigger
-                                             (icon-for-type type))))
-                             ))))
-                      rset))
-               (p (@ (class "menu-label")) "Flags")
-               (ul (@ (class "menu-list"))
-                   ,@(map (^f `(li ,f)) flags))))))
+    `(aside (@ (class "menu"))
+            (p (@ (class "menu-label"))
+               "Options")
+            (ul (@ (class "menu-list"))
+                ,@(map
+                   (^[row]
+                     (await
+                      (^[]
+                        (let ((dialog-id (vector-ref row 0))
+                              (type      (vector-ref row 1))
+                              (trigger   (vector-ref row 2)))
+                          (case (string->symbol type)
+                            ((portal)
+                             (show-portal dialog-id trigger))
+                            (else
+                             (show-option dialog-id trigger
+                                          (icon-for-type type))))
+                          ))))
+                   (get-data loc (vector->list (json-query session '("flags"))))))
+            (p (@ (class "menu-label")) "Flags")
+            (ul (@ (class "menu-list"))
+                ,@(map (^f `(li ,f)) flags))))
 
   (let ((loc (json-query session '("location")))
         (flags (json-query session '("flags"))))
