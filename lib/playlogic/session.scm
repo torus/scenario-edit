@@ -85,4 +85,4 @@
 
 (define (new-session-id!)
   (let ((rand (random-integer #x10000000000000000)))
-    (format #f "sess-~16,'0X" rand)))
+    (format #f "sess-~8,'0X-~16,'0X" (sys-time) rand)))
