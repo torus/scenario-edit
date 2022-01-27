@@ -1,10 +1,10 @@
 (define-module playlogic
-  (use srfi-27)                         ; random
   (use srfi-98)                         ; get-environment-variable
 
   (use violet)
   (use makiki)
 
+  (use data.random)
   (use file.util)
   (use sxml.tools)
 
@@ -258,7 +258,7 @@
        (ok req "Login with Twitter"
            (session-verify-auth await req)))))
 
-  (random-source-randomize! default-random-source)
+  (set! (random-data-seed) (sys-time))
   (datastore-connect!))
 
 

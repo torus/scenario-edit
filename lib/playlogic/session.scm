@@ -1,6 +1,10 @@
 (define-module playlogic.session
-  (use srfi-27)                         ; random-integer
   (use srfi-98)                         ; get-environment-variable
+
+  (use gauche.generator)
+  (use data.random)
+  (use rfc.sha)
+  (use util.digest)
 
   (use makiki)
 
@@ -84,5 +88,10 @@
    "https://api.twitter.com/oauth/authorize"))
 
 (define (new-session-id!)
-  (let ((rand (random-integer #x10000000000000000)))
-    (format #f "sess-~8,'0X-~16,'0X" (sys-time) rand)))
+  (define algo (make <sha256>))
+  (define random-bytes (generator->bytevector uint8s 16))
+
+  (digest-update! algo random-bytes)
+
+  (let ((key (digest-hexify (digest-final! algo))))
+    #"sess-~key"))
