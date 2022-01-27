@@ -4,6 +4,7 @@
   (use violet)
   (use makiki)
 
+  (use file.util)
   (use sxml.tools)
 
   (add-load-path "." :relative)
@@ -166,7 +167,23 @@
        (let-params req ([id "p:1"])
          (ok* req (render-location-graph await id))))))
 
-  (define-http-handler #/^\/static\// (file-handler))
+  (define-http-handler #/^\/static\/gameassets\/.*\.jpg$/
+    (handle-request/no-auth
+     (^[await req app]
+       (let* ((root (document-root))
+              (path (request-path req))
+              (full-path (sys-normalize-pathname #"~|root|~|path|")))
+         (await
+          (^[]
+            (if (file-is-readable? full-path)
+                (respond/ok req `(file ,full-path))
+                (respond/ok req `(file ,"static/404.jpg")))))))))
+
+  (define-http-handler #/^\/static\//
+    (let ((proc (file-handler :directory-index '("index.html"))))
+      (handle-request/no-auth
+       (^[await req app]
+         (await (cut proc req app))))))
 
   (define-http-handler "/admin/setup"
     (handle-request
