@@ -1,4 +1,5 @@
 (define-module playlogic
+  (use srfi-27)                         ; random
   (use srfi-98)                         ; get-environment-variable
 
   (use violet)
@@ -257,6 +258,7 @@
        (ok req "Login with Twitter"
            (session-verify-auth await req)))))
 
+  (random-source-randomize! default-random-source)
   (datastore-connect!))
 
 
