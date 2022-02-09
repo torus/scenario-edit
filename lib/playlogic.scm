@@ -48,7 +48,9 @@
                            (respond/ng req 500 :body (create-error-page e))])
                   (let ((sess (request-cookie-ref req "sessionid")))
                     (if (and sess (valid-session-id? await (cadr sess)))
-                        (proc await req app)
+                        (begin
+                          (session-add-cookie! req (cadr sess))
+                          (proc await req app))
                         (respond/redirect req "/twitauth")))))))))
 
 (define (handle-request/no-auth proc)

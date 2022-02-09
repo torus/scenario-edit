@@ -21,7 +21,8 @@
 
   (export session-show-login-page
           session-verify-auth
-          valid-session-id?))
+          valid-session-id?
+          session-add-cookie!))
 
 (select-module playlogic.session)
 
@@ -29,6 +30,12 @@
   (pair? (query* await '(SELECT 1 FROM sessions
                                 WHERE "session_id" = ?)
                  session-id)))
+
+(define (session-add-cookie! req session-id)
+  (response-cookie-add! req "sessionid" session-id
+                        :expires (+ (sys-time) (* 24 60 60 180))
+                        :max-age (* 24 60 60 180)
+                        :path "/"))
 
 (define (session-show-login-page await req)
   (let-params req ([session-id "c:sessionid"])
@@ -38,7 +45,7 @@
              (a (@ (href "/")) "Back to Home")))
 
         (let ([session-id (new-session-id!)])
-          (response-cookie-add! req "sessionid" session-id)
+          (session-add-cookie! req session-id)
           (let* ((key (get-environment-variable "TWITTER_API_KEY"))
                  (secret (get-environment-variable "TWITTER_API_KEY_SECRET"))
                  (temp-cred #?=(twitter-authenticate-request key secret)))
