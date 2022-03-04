@@ -189,8 +189,9 @@
   (define (render-jump label)
     (let ((dialog-id
            (car (map (cut vector-ref <> 0)
-                     `(SELECT "dialog_id" FROM "dialogs"
-                              WHERE "label" = ,label)))))
+                     (query* await
+                             `(SELECT "dialog_id" FROM "dialogs"
+                                      WHERE "label" = ,label))))))
       `((a (@ (href
                ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
            (span (@ (class "tag is-info"))
