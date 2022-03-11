@@ -107,6 +107,16 @@
                (scenario-page-header await id)
                rendered))))))
 
+  (define-http-handler #/^\/scenarios\/(\d+)\/view\/$/
+    (handle-request
+     (^[await req app]
+       (let-params req ([id "p:1"])
+         (let ((rendered
+                (read-and-render-scenario-file/view await id)))
+           (ok req "会話"
+               (scenario-page-header await id)
+               rendered))))))
+
   (define-http-handler #/^\/scenarios\/(\d+)\/update-csv/
     (handle-request
      (^[await req app]

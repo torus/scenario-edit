@@ -20,6 +20,7 @@
   (export read-and-render-scenario-file
           read-and-render-scenario-file/edit
           read-and-render-scenario-file/insert
+          read-and-render-scenario-file/view
           convert-json-to-csv
           update-with-json
           delete-existing-dialogs
@@ -90,9 +91,11 @@
          ))
 
   `(div (@ (class "columns"))
-        (div (@ (class "column is-one-fifth has-text-right"))
-             ,char)
-        (div (@ (class "column"))
+        (div (@ (class "column is-one-fifth has-text-right pt-0"))
+             ,(if (> (string-length char) 0)
+                  `(strong ,char)
+                  ""))
+        (div (@ (class "column pt-0"))
              ,text
              ,(if (null? options)
                   ()
@@ -154,43 +157,43 @@
         (flags-req (get "flags-required"))
         (flags-exc (get "flags-exclusive"))
         (flags-set (get "flags-set")))
-    `(section (@ (class "section") (id ,#"label-~label"))
-              ,(container/
-                `(div (@ (class "columns is-vcentered"))
-                      ,@additioanl-elements
-                      (div (@ (class "column is-1"))
-                           (a (@ (class "button is-white anchor")
-                                 (href ,#"#label-~label"))
-                              ,(fas-icon "anchor")))
-                      (div (@ (class "column is-one-third"))
-                           (h4 (@ (class "title is-4"))
-                               ,(icon-for-type type) " " ,label))
-                      (div (@ (class "column"))
-                           (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                                 ,loc)
-                              ,(fas-icon "caret-right") ,trigger))
-                      (div (@ (class "column is-1"))
-                           (p (@ (class "has-text-grey"))
-                              "0x" ,(number->string ord 16))))
-                `(div (@ (class "columns"))
-                      (div (@ (class "column is-one-third"))
-                           ,(intersperse
-                             " "
-                             (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                  flags-req)))
-                      (div (@ (class "column is-one-third"))
-                           ,(intersperse
-                             " "
-                             (map (^f `(span (@ (class "tag is-danger")) ,f))
-                                  flags-exc)))
-                      (div (@ (class "column is-one-third"))
-                           ,(intersperse
-                             " "
-                             (map (^f `(span (@ (class "tag is-info")) ,f))
-                                  flags-set))))
+    `((section (@ (class "section") (id ,#"label-~label"))
+               ,(container/
+                 `(div (@ (class "columns is-vcentered"))
+                       ,@additioanl-elements
+                       (div (@ (class "column is-1 pt-0"))
+                            (a (@ (class "button is-white anchor")
+                                  (href ,#"#label-~label"))
+                               ,(fas-icon "anchor")))
+                       (div (@ (class "column is-three-fifths pt-0"))
+                            (h4 (@ (class "title is-4"))
+                                ,(icon-for-type type) " " ,label))
+                       (div (@ (class "column pt-0"))
+                            (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                                  ,loc)
+                               ,(fas-icon "caret-right") ,trigger))
+                       (div (@ (class "column is-1 pt-0"))
+                            (p (@ (class "has-text-grey"))
+                               "0x" ,(number->string ord 16))))
+                 `(div (@ (class "columns"))
+                       (div (@ (class "column is-one-third pt-0"))
+                            ,(intersperse
+                              " "
+                              (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                   flags-req)))
+                       (div (@ (class "column is-one-third pt-0"))
+                            ,(intersperse
+                              " "
+                              (map (^f `(span (@ (class "tag is-danger")) ,f))
+                                   flags-exc)))
+                       (div (@ (class "column is-one-third pt-0"))
+                            ,(intersperse
+                              " "
+                              (map (^f `(span (@ (class "tag is-info")) ,f))
+                                   flags-set))))
 
-                (if (string=? type "portal") (show-portal) ())
-                (render-lines lines)))))
+                 (if (string=? type "portal") (show-portal) ())
+                 (render-lines lines))))))
 
 (define (render-dialog/edit-button await conv data-id)
   (render-dialog await conv data-id
@@ -573,6 +576,16 @@
             ,(add-dialog-button id (label-of prev-conv)
                                 (+ 1024 (ord-of prev-conv))))))
     ))
+
+(define (read-and-render-scenario-file/view await id)
+  (let ((content (read-dialogs-from-db await id)))
+    (reverse
+     (fold (^[conv rest]
+             (let ((label (cdr (assoc "label" conv))))
+               (cons (render-dialog await conv id)
+                     rest)))
+           ()
+           content))))
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
