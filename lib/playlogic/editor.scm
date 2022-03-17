@@ -955,6 +955,7 @@
      ((inspection)   "search")
      ((conversation) "comment")
      ((area)         "sign-in-alt")
+     ((message)      "pager")
      (else           "question"))))
 
 (define (get-ascii-name await data-id loc)
