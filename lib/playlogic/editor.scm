@@ -1051,6 +1051,19 @@
                                            "button is-primary"))
                                        "更新")))))))
 
+  (define (trigger-list data-id loc)
+    (let ((triggers (query* await
+                            `(SELECT DISTINCT "type" |,| "trigger" FROM "dialogs"
+                                     WHERE "scenario_id" = ,data-id
+                                     AND "location" = ,loc
+                                     ORDER BY "type"))))
+      (map (^[row]
+             (match row
+                    (#(typ trg)
+                     `(button (@ (class "button"))
+                                ,(icon-for-type typ) " " (span ,trg)))))
+           triggers)))
+
   (let ((content (read-dialogs-from-db await data-id "location" '= loc))
         (ascii   (get-ascii-name await data-id loc)))
     `(div (@ (class "container"))
@@ -1067,6 +1080,10 @@
                           (img (@ (src ,(location-image-url await data-id
                                                             loc)))))
                      (div (@ (class "column")) ""))
+                (div (@ (class "columns"))
+                     (div (@ (class "column"))
+                          (p (@ (class "buttons"))
+                             ,(trigger-list data-id loc))))
                 (table (@ (class "table"))
                        (tr (th "Trigger") (th "Label") (th "Flags"))
                        ,(map
