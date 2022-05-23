@@ -1,12 +1,12 @@
-(define-module query
+(define-module dbi-query
+  (use text.tree)
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
-  (use dbd.sqlite)
 
   (export build-query
+          do-query
    ))
 
-(select-module query)
+(select-module dbi-query)
 
 (define (build-query conn lis)
   (let loop ((lis lis) (tree ()))
@@ -23,6 +23,21 @@
                  (loop (cdr lis) (cons (number->string e) tree)))
                 ((null? e)
                  (loop (cdr lis) (cons (list "(" ")") tree)))
-                ))))
+                )))))
 
-)
+(define (do-query await conn query . params)
+  (with-query-result/tree
+   await conn (build-query conn query) params
+   (^[rset]
+     (if (is-a? rset <relation>)
+         (relation-rows rset)
+         rset))))
+
+(define (with-query-result await conn str args proc)
+  (let ((rset (await (^[] (apply dbi-do conn str '() args)))))
+    (let ((result (proc rset)))
+      (dbi-close rset)
+      result)))
+
+(define (with-query-result/tree await conn tree args proc)
+  (with-query-result await conn (tree->string tree) args proc))

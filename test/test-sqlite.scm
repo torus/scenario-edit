@@ -49,10 +49,10 @@
          AND "fr" |.| "flag" IS NULL
          AND "fe" |.| "flag" IS NULL))
 
-(load "./lib/query.scm")
-(import query)
+(load "./lib/dbi-query.scm")
+(import dbi-query)
 
-(test-module 'query)
+(test-module 'dbi-query)
 
 (test-behavior "simple SELECT"
                (^[]

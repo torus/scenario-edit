@@ -14,7 +14,6 @@
 
   (add-load-path "." :relative)
   (use json-match)
-  (use query)
   (use playlogic.datastore)
 
   (export read-and-render-scenario-file

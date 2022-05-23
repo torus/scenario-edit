@@ -2,50 +2,30 @@
   (use text.tree)
 
   (use dbi)
-  (add-load-path "../gosh-modules/dbd-sqlite" :relative)
+  (add-load-path "../../gosh-modules/dbd-sqlite" :relative)
   (use dbd.sqlite)
 
   (add-load-path "." :relative)
-  (use query)
+  (use dbi-query)
 
-  (export query*
-          create-tables
+  (export create-tables
+          query*
           datastore-connect!))
 
 (select-module playlogic.datastore)
 
-
-
 ;; SQLite
 
 (define *sqlite-conn* #f)
+
+(define (query* await query . params)
+  (apply do-query await *sqlite-conn* query params))
 
 (define (datastore-connect!)
   (let ((conn (dbi-connect "dbi:sqlite:scenario-sqlite3.db")))
     (set! *sqlite-conn* conn)
     (print "Sqlite connected")
     (flush)))
-
-(define (query* await query . params)
-  (with-query-result/tree
-   await (build-query *sqlite-conn* query) params
-   (^[rset]
-     (if (is-a? rset <relation>)
-         (relation-rows rset)
-         rset))))
-
-(define (with-query-result await str args proc)
-  (let ((rset (await (^[] (apply dbi-do *sqlite-conn* str '() args)))))
-    (let ((result (proc rset)))
-      (dbi-close rset)
-      result)))
-
-(define (with-query-result/tree await tree args proc)
-  (with-query-result await (tree->string tree) args proc))
-
-(define (with-query-result/tree* await tree args proc)
-  (let ((query-str (tree->string (build-query *sqlite-conn* tree))))
-    (with-query-result await query-str args proc)))
 
 (define (execute-query str args)
   (guard (e [else (report-error e)])

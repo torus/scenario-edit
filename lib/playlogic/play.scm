@@ -9,7 +9,6 @@
 
   (add-load-path "." :relative)
   (use json-match)
-  (use query)
   (use playlogic.editor)
   (use playlogic.datastore)
 
