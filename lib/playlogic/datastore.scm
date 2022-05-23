@@ -10,6 +10,7 @@
 
   (export create-tables
           query*
+          *sqlite-conn*
           datastore-connect!))
 
 (select-module playlogic.datastore)

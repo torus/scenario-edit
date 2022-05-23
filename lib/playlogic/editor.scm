@@ -14,6 +14,7 @@
 
   (add-load-path "." :relative)
   (use json-match)
+  (use bulma-utils)
   (use playlogic.datastore)
 
   (export read-and-render-scenario-file
@@ -23,8 +24,6 @@
           convert-json-to-csv
           update-with-json
           delete-existing-dialogs
-          navbar/
-          container/
           render-location
           render-location-list
           render-location-graph
@@ -37,7 +36,6 @@
 
           read-dialog-detail-from-db
 
-          fas-icon
           icon-for-type
           ))
 
@@ -66,17 +64,9 @@
      (script (@ (src "/static/script.js")) "")))
   )
 
-(define (container/ . children)
-  `(div (@ (class "container"))
-        ,@children))
-
-(define (fas-icon name)
-  `(span (@ (class "icon"))
-         (i (@ (class ,#"fas fa-~name")) "")))
-
 (define (render-line char text options)
   (define (render-option o)
-    `(li ,(fas-icon "angle-right")
+    `(li ,(fas-icon/ "angle-right")
          ,(cdr (assoc "text" o)) " "
          ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
                                  (cdr (safe-assoc-vec "flags-required" o))))
@@ -84,7 +74,7 @@
          ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
              (if (> (vector-length jump) 0)
                  `((span (@ (class "tag is-info"))
-                         ,(fas-icon "arrow-circle-right") " "
+                         ,(fas-icon/ "arrow-circle-right") " "
                          ,(vector-ref jump 0)))
                  ()))
          ))
@@ -120,11 +110,11 @@
                          (name "label")
                          (value ,label)))
                (button (@ (class "button is-danger"))
-                       ,(fas-icon "trash-alt"))))
+                       ,(fas-icon/ "trash-alt"))))
     (div (@ (class "column is-1"))
          (a (@ (class "button")
                (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
-            ,(fas-icon "edit")))))
+            ,(fas-icon/ "edit")))))
 
 (define (render-dialog await conv data-id . additioanl-elements)
   (define (get name)
@@ -134,11 +124,11 @@
     (define dest (get "portal-destination"))
     `(div (@ (class "columns"))
           (div (@ (class "column"))
-               ,(fas-icon "walking") " " ,dest " "
+               ,(fas-icon/ "walking") " " ,dest " "
                ,(map
                  (^[row]
                    (let ((loc (vector-ref row 0)))
-                     `(,(fas-icon "map-marker-alt")
+                     `(,(fas-icon/ "map-marker-alt")
                        (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
                           ,loc))))
                  (query* await
@@ -163,14 +153,14 @@
                        (div (@ (class "column is-1 pt-0"))
                             (a (@ (class "button is-white anchor")
                                   (href ,#"#label-~label"))
-                               ,(fas-icon "anchor")))
+                               ,(fas-icon/ "anchor")))
                        (div (@ (class "column pt-0"))
                             (h4 (@ (class "title is-4"))
                                 ,(icon-for-type type) " " ,label))
                        (div (@ (class "column is-3 pt-0"))
                             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
                                   ,loc)
-                               ,(fas-icon "caret-right") ,trigger))
+                               ,(fas-icon/ "caret-right") ,trigger))
                        (div (@ (class "column is-1 pt-0"))
                             (p (@ (class "has-text-grey"))
                                "0x" ,(number->string ord 16))))
@@ -222,7 +212,7 @@
   `(div (@ (class "option-input-group"))
         (div (@ (class "columns is-vcentered"))
              (div (@ (class "column is-one-fifth has-text-right"))
-                  ,(fas-icon "angle-right"))
+                  ,(fas-icon/ "angle-right"))
              (div (@ (class "column"))
                   (input (@ (class "input option-input") (type "text")
                             (placeholder "選択肢")
@@ -230,7 +220,7 @@
 
         (div (@ (class "columns is-vcentered"))
              (div (@ (class "column is-one-quarter has-text-right"))
-                  ,(fas-icon "angle-right"))
+                  ,(fas-icon/ "angle-right"))
              (div (@ (class "column"))
                   (p (span (@ (class "tag is-primary"))
                            "要求フラグ"))
@@ -271,7 +261,7 @@
               (div (@ (class "column"))
                    (div (@ (class "field has-text-centered"))
                         (a (@ (class "button add-option-button"))
-                           ,(fas-icon "angle-right")
+                           ,(fas-icon/ "angle-right")
                            (span (@ (style "margin-left: 0.5ex"))
                                  "選択肢を追加"))))))))
 
@@ -403,7 +393,7 @@
                (div (@ (class "field has-text-centered"))
                     (a (@ (class "button")
                           (id "add-line-button"))
-                       ,(fas-icon "comment")
+                       ,(fas-icon/ "comment")
                        (span (@ (style "margin-left: 0.5ex"))"セリフを追加"))))))
 
   `(section
@@ -433,7 +423,7 @@
           (div (@ (class "column has-text-centered"))
                (a (@ (class "button")
                      (href ,#"/scenarios/~|data-id|/insert/~|ord-hex|#form"))
-                  ,(fas-icon "comments")
+                  ,(fas-icon/ "comments")
                   (span (@ (style "margin-left: 0.5ex"))"会話を追加"))))))
 
 (define (read-scenario-file await id)
@@ -631,22 +621,6 @@
            ()
            content))))
 
-(define (navbar/ await data-id title . content)
-  `(navbar (@ (class "navbar is-fixed-top is-light")
-              (role "navigation")
-              (aria-label "main navigation"))
-           (div (@ (class "navbar-brand"))
-                (div (@ (class "navbar-item"))
-                     (h1 (@ (class "title is-4")) ,#"~|title|"))
-                (a (@ (role "button") (class "navbar-burger")
-                      (aria-label "menu") (aria-expanded "false")
-                      (data-target "playlogic-navbar"))
-                   (span (@ (aria-hidden "true")) "")
-                   (span (@ (aria-hidden "true")) "")
-                   (span (@ (aria-hidden "true")) "")))
-
-           ,content))
-
 (define (scenario-page-header await id)
   (let ((title (match
                 (query* await '(SELECT "title" FROM "scenarios"
@@ -660,31 +634,31 @@
            (div (@ (class "navbar-start"))
                 (a (@ (class "navbar-item")
                       (href ,#`"/scenarios/,|id|"))
-                   ,(fas-icon "home") (span "Home"))
+                   ,(fas-icon/ "home") (span "Home"))
                 (a (@ (class "navbar-item")
                       (href ,#`"/scenarios/,|id|/locations"))
-                   ,(fas-icon "map-marked-alt") (span "Locations"))
+                   ,(fas-icon/ "map-marked-alt") (span "Locations"))
                 (a (@ (class "navbar-item")
                       (href ,#`"/scenarios/,|id|/view/"))
-                   ,(fas-icon "eye") (span "View Mode"))
+                   ,(fas-icon/ "eye") (span "View Mode"))
                 (a (@ (class "navbar-item"))
                    (div (@ (class "buttons"))
                         (a (@ (class "button is-primary")
                               (href ,#`"/scenarios/,|id|/play/,*session-id*"))
-                           ,(fas-icon "gamepad") (span "Play")))))
+                           ,(fas-icon/ "gamepad") (span "Play")))))
 
            (div (@ (class "navbar-end"))
                 (div (@ (class "navbar-item has-dropdown is-hoverable"))
                      (a (@ (class "navbar-link"))
-                        ,(fas-icon "hammer")
+                        ,(fas-icon/ "hammer")
                         (span "Admin"))
                      (div (@ (class "navbar-dropdown is-right"))
                           (a (@ (class "navbar-item")
                                 (href ,#`"/scenarios/,|id|/update-csv"))
-                             ,(fas-icon "save") (span "Update CSV/JSON"))
+                             ,(fas-icon/ "save") (span "Update CSV/JSON"))
                           (a (@ (class "navbar-item")
                                 (href ,#`"/scenarios/,|id|/convert"))
-                             ,(fas-icon "skull-crossbones")
+                             ,(fas-icon/ "skull-crossbones")
                              (span "Convert from JSON"))
                           )))))))
 
@@ -948,7 +922,7 @@
   (^[% @] (@ (process-dialog % @))))
 
 (define (icon-for-type type)
-  (fas-icon
+  (fas-icon/
    (case (string->symbol type)
      ((portal)       "walking")
      ((inspection)   "search")
@@ -991,7 +965,7 @@
        (^[row]
          (let ((loc (vector-ref row 0)))
            `(" "
-             ,(fas-icon "arrow-right")
+             ,(fas-icon/ "arrow-right")
              (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
                 ,loc
                 ))))
@@ -1068,7 +1042,7 @@
     `(div (@ (class "container"))
           ((div (@ (class "block"))
                 (h2 (@ (class "title is-4"))
-                    ,(fas-icon "map-marker-alt") " " ,loc)
+                    ,(fas-icon/ "map-marker-alt") " " ,loc)
                 (div (@ (class "columns"))
                      (div (@ (class "column"))
                           ,(ascii-name-form ascii)
@@ -1174,7 +1148,7 @@
           (ascii (or (cadr loc&ascii) '(span (@ (class "tag is-danger"))
                                              "ASCII NOT SPECIFIED"))))
       `(li (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-              ,(fas-icon "map-marker-alt") " " ,loc
+              ,(fas-icon/ "map-marker-alt") " " ,loc
               " (" ,ascii ")"))))
 
   (let* ((results
@@ -1189,7 +1163,7 @@
      `(div (@ (class "columns"))
            (div (@ (class "column"))
                 (h2 (@ (class "title"))
-                    ,(fas-icon "map-marked-alt") " Locations")
+                    ,(fas-icon/ "map-marked-alt") " Locations")
                 (p (a (@ (href ,#"/scenarios/~|data-id|/location-graph"))
                       "Location Graph"))
                 (div (@ (class "menu"))

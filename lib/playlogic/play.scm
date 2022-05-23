@@ -9,6 +9,7 @@
 
   (add-load-path "." :relative)
   (use json-match)
+  (use bulma-utils)
   (use playlogic.editor)
   (use playlogic.datastore)
 
@@ -54,11 +55,11 @@
          (div (@ (class "navbar-start"))
               (a (@ (class "navbar-item")
                     (href ,#`"/scenarios/,|data-id|"))
-                 ,(fas-icon "home") (span "Back to Editor")))
+                 ,(fas-icon/ "home") (span "Back to Editor")))
          (div (@ (class "navbar-end"))
               (a (@ (class "navbar-item")
                     (href ,#`"/scenarios/,|data-id|/play/,|session-id|/session"))
-                 ,(fas-icon "save") (span "ふっかつのじゅもん"))))))
+                 ,(fas-icon/ "save") (span "ふっかつのじゅもん"))))))
 
 (define (play-update-session! await data-id session-id session-string)
   (let ((session (parse-json-string session-string)))
@@ -160,7 +161,7 @@
            (div (@ (class "column"))
                 (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
                       ,loc)
-                   ,(fas-icon "caret-right") ,trigger)))
+                   ,(fas-icon/ "caret-right") ,trigger)))
       (div (@ (class "columns"))
            (div (@ (class "column is-one-third"))
                 ,(intersperse
@@ -194,11 +195,11 @@
       `((a (@ (href
                ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
            (span (@ (class "tag is-info"))
-                 ,(fas-icon "arrow-circle-right") " "
+                 ,(fas-icon/ "arrow-circle-right") " "
                  ,label)))))
 
   (define (render-option o)
-    `(li ,(fas-icon "angle-right")
+    `(li ,(fas-icon/ "angle-right")
          ,(cdr (assoc "text" o)) " "
          ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
                                  (cdr (safe-assoc-vec "flags-required" o))))
@@ -308,7 +309,7 @@
                 *session-table* session-id
                 (assoc-set! session "location" new-location))))))
       `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
-              ,(fas-icon "walking")
+              ,(fas-icon/ "walking")
               ,#" ~new-location へ"))))
 
   (define (show-option dialog-id trigger icon)

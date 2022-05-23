@@ -1,4 +1,4 @@
-(define-module playlogic.session
+(define-module web-session
   (use srfi-98)                         ; get-environment-variable
 
   (use gauche.generator)
@@ -16,18 +16,20 @@
   (use net.twitter.account :prefix twitter-account:)
   (use net.twitter.auth)
 
-  (use playlogic.editor)
-  (use playlogic.datastore)
+  (add-load-path "." :relative)
+  (use bulma-utils)
+  (add-load-path ".." :relative)
+  (use dbi-query)
 
   (export session-show-login-page
           session-verify-auth
           valid-session-id?
           session-add-cookie!))
 
-(select-module playlogic.session)
+(select-module web-session)
 
-(define (valid-session-id? await session-id)
-  (pair? (query* await '(SELECT 1 FROM sessions
+(define (valid-session-id? await dbi-conn session-id)
+  (pair? (do-query await dbi-conn '(SELECT 1 FROM sessions
                                 WHERE "session_id" = ?)
                  session-id)))
 
@@ -37,11 +39,11 @@
                         :max-age (* 24 60 60 180)
                         :path "/"))
 
-(define (session-show-login-page await req)
+(define (session-show-login-page await dbi-conn req)
   (let-params req ([session-id "c:sessionid"])
-    (if (and session-id (valid-session-id? await session-id))
+    (if (and session-id (valid-session-id? await dbi-conn session-id))
         (container/
-         '(p "You have been already logged in. "
+         '(p "You are already logged in. "
              (a (@ (href "/")) "Back to Home")))
 
         (let ([session-id (new-session-id!)])
@@ -54,7 +56,7 @@
              `(p (a (@ (href ,(twitter-authorize-url temp-cred))) "login"))
              ))))))
 
-(define (session-verify-auth await req)
+(define (session-verify-auth await dbi-conn req)
   (let-params req ([verifier "q:oauth_verifier"]
                    [session-id "c:sessionid"])
     (let* ((key (get-environment-variable "TWITTER_API_KEY"))
@@ -68,18 +70,18 @@
                    (acc (twitter-account:verify-credentials/json cred)))
               (let ((twitter-id (cdr (assoc "id" acc)))
                     (screen-name (cdr (assoc "screen_name" acc))))
-                (query* await
-                        '(INSERT INTO "sessions" ("session_id" |,| "user_id")
-                                 VALUES (? |,| ?)
-                                 |;|
-                                 INSERT OR REPLACE INTO "users"
-                                 ("user_id" |,| "display_name")
-                                 VALUES (? |,| ?))
-                        session-id
-                        #"twitter-~twitter-id"
-                        #"twitter-~twitter-id"
-                        screen-name
-                        ))
+                (do-query await dbi-conn
+                          '(INSERT INTO "sessions" ("session_id" |,| "user_id")
+                                   VALUES (? |,| ?)
+                                   |;|
+                                   INSERT OR REPLACE INTO "users"
+                                   ("user_id" |,| "display_name")
+                                   VALUES (? |,| ?))
+                          session-id
+                          #"twitter-~twitter-id"
+                          #"twitter-~twitter-id"
+                          screen-name
+                          ))
 
               (set! (~ *twitter-creds* session-id) #f)
               (container/

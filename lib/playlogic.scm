@@ -11,8 +11,12 @@
   (add-load-path "." :relative)
   (use playlogic.editor)
   (use playlogic.play)
-  (use playlogic.session)
   (use playlogic.datastore)
+
+  (use web-session)
+
+  (add-load-path "./playlogic" :relative)
+  (use bulma-utils)
 
   (export playlogic-start!))
 
@@ -35,7 +39,7 @@
           "ERROR!"
           `((div (@ (class "container"))
                  (h1 (@ (class "title"))
-                     "Something went wrong " ,(fas-icon "sad-tear"))
+                     "Something went wrong " ,(fas-icon/ "sad-tear"))
                  (pre ,(report-error e #f))))))))
 
 (define (handle-request proc)
@@ -47,7 +51,8 @@
            (guard (e [else (report-error e)
                            (respond/ng req 500 :body (create-error-page e))])
                   (let ((sess (request-cookie-ref req "sessionid")))
-                    (if (and sess (valid-session-id? await (cadr sess)))
+                    (if (and sess (valid-session-id? await *sqlite-conn*
+                                                     (cadr sess)))
                         (begin
                           (session-add-cookie! req (cadr sess))
                           (proc await req app))
@@ -262,13 +267,13 @@
     (handle-request/no-auth
      (^[await req app]
        (ok req "Login with Twitter"
-           (session-show-login-page await req)))))
+           (session-show-login-page await *sqlite-conn* req)))))
 
   (define-http-handler "/twcallback"
     (handle-request/no-auth
      (^[await req app]
        (ok req "Login with Twitter"
-           (session-verify-auth await req)))))
+           (session-verify-auth await *sqlite-conn* req)))))
 
   (set! (random-data-seed) (sys-time))
   (datastore-connect!))
