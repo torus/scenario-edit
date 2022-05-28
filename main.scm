@@ -1,5 +1,5 @@
 (add-load-path "lib" :relative)
-(add-load-path "gauche-rheingau/lib" :relative)
+(add-load-path "gauche-rheingau" :relative)
 
 (use playlogic)
 

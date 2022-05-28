@@ -1,7 +1,7 @@
 (use gauche.test)
 
 
-(add-load-path "./gauche-rheingau/lib")
+(add-load-path "./gauche-rheingau")
 
 (test-start "Scenario")
 (load "./lib/playlogic")
