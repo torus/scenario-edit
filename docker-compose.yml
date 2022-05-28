@@ -11,7 +11,6 @@ services:
       - "2227:2222"
     expose:
       - "2222"
-    entrypoint: make run
     env_file: playlogic.env
 networks:
    default:
