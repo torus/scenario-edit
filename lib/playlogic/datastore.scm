@@ -2,8 +2,9 @@
   (use text.tree)
 
   (use dbi)
-  (add-load-path "../../gosh-modules/dbd-sqlite" :relative)
-  (use dbd.sqlite)
+
+  (use rheingau)
+  (rheingau-use dbd.sqlite)
 
   (add-load-path "." :relative)
   (use dbi-query)

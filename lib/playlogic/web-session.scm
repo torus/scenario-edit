@@ -8,13 +8,12 @@
 
   (use makiki)
 
-  (add-load-path "../../gosh-modules/net-twitter" :relative)
-  (add-load-path "../../gosh-modules/net-oauth" :relative)
+  (use rheingau)
 
-  (use net.oauth)
-  (use net.twitter)
-  (use net.twitter.account :prefix twitter-account:)
-  (use net.twitter.auth)
+  (rheingau-use net.oauth)
+  (rheingau-use net.twitter)
+  (rheingau-use net.twitter.account :prefix twitter-account:)
+  (rheingau-use net.twitter.auth)
 
   (add-load-path "." :relative)
   (use bulma-utils)

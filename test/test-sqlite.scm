@@ -6,7 +6,7 @@
 
 (use gauche.collection)
 (use dbi)
-(add-load-path "../gosh-modules/dbd-sqlite" :relative)
+(add-load-path "../gosh-modules/dbd.sqlite" :relative)
 (use dbd.sqlite)
 
 (load "./testlib/test-utils")
