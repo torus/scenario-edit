@@ -22,7 +22,6 @@
           read-and-render-scenario-file/edit
           read-and-render-scenario-file/insert
           read-and-render-scenario-file/view
-          read-and-render-scenario-file/markdown
           convert-json-to-csv
           update-with-json
           delete-existing-dialogs
@@ -273,7 +272,7 @@
   markdown-content
   )
 
-(define (read-and-render-scenario-file/markdown await id)
+(define (overwrite-markdown-file await id)
   (let ((content (read-dialogs-from-db await id)))
     (with-output-to-file (markdown-file-path id)
       (^[]
@@ -283,11 +282,7 @@
                   (cons (render-dialog/markdown await conv id)
                         rest))
                 ()
-                content))))))
-
-  `(p (span (a (@ (href ,#"/scenarios/~|id|"))
-               "Back to Scenario"))))
-
+                content)))))))
 
 (define (render-dialog/edit-button await conv data-id)
   (render-dialog await conv data-id
@@ -763,7 +758,8 @@
                      (div (@ (class "navbar-dropdown is-right"))
                           (a (@ (class "navbar-item")
                                 (href ,#`"/scenarios/,|id|/update-csv"))
-                             ,(fas-icon/ "save") (span "Update CSV/JSON"))
+                             ,(fas-icon/ "save")
+                             (span "Update CSV/JSON/Markdown"))
                           (a (@ (class "navbar-item")
                                 (href ,#`"/scenarios/,|id|/convert"))
                              ,(fas-icon/ "skull-crossbones")
@@ -907,6 +903,8 @@
                            ("locations" . ,locations-json)
                            ("dialogs" . ,dialogs-json))
                          (json-file-path data-id))
+
+    (overwrite-markdown-file await data-id)
 
     (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
           (line-port (open-output-file "csv/Dialogs_lines.csv"))
