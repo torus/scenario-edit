@@ -5,6 +5,7 @@ services:
     volumes:
       - .:/code
       - ../pl-data/Dialogues/json:/code/json
+      - ../pl-data/Dialogues/markdown:/code/markdown
       - ../pl-data/Dialogues:/code/csv
       - ../pl-data/Dialogues/images:/code/static/gameassets
     ports:

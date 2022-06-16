@@ -6,6 +6,7 @@
   (use file.util)
   (use rfc.json)
   (use text.csv)
+  (use text.tree)
   (use util.match)
 
   (use makiki)
@@ -21,6 +22,7 @@
           read-and-render-scenario-file/edit
           read-and-render-scenario-file/insert
           read-and-render-scenario-file/view
+          read-and-render-scenario-file/markdown
           convert-json-to-csv
           update-with-json
           delete-existing-dialogs
@@ -183,6 +185,109 @@
 
                  (if (string=? type "portal") (show-portal) ())
                  (render-lines lines))))))
+
+(define (render-dialog/markdown await conv data-id)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+  (define (show-portal)
+    (define dest (get "portal-destination"))
+    `(":walking: " ,dest
+      ,(map
+        (^[row]
+          (let ((loc (vector-ref row 0)))
+            `(":round_pushpin: " ,loc)))
+        (query* await
+                '(SELECT DISTINCT "location" FROM "dialogs"
+                         WHERE "type" = "portal"
+                         AND "trigger" = ?)
+                dest))
+      "\n"))
+
+  (define (icon-for-type/markdown type)
+    (case (string->symbol type)
+       ((portal)       " :walking: ")
+       ((inspection)   " :mag: ")
+       ((conversation) " :speech_balloon: ")
+       ((area)         " :black_square_button: ")
+       ((message)      " :pager: ")
+       (else           " :question: ")))
+
+  (define (render-lines/markdown lines)
+    (reverse
+     (fold (^[line rest]
+             (let ((char (cdr (assoc "character" line)))
+                   (text (cdr (assoc "text" line)))
+                   (options (let ((opt (assoc "options" line)))
+                              (if opt (cdr opt) ()))))
+               (cons `("**" ,(if (= 0 (string-length char))
+                                 "(blank)"
+                                 char) "** " ,text "\n\n")
+
+                     rest)))
+           () lines)))
+
+  (define markdown-content
+    (let ((label     (get "label"))
+        (lines     (get "lines"))
+        (loc       (get "location"))
+        (type      (get "type"))
+        (trigger   (get "trigger"))
+        (ord       (get "ord"))
+        (flags-req (get "flags-required"))
+        (flags-exc (get "flags-exclusive"))
+        (flags-set (get "flags-set")))
+    `("### " ,(icon-for-type/markdown type) " " ,label " ("
+      ,loc " > " ,trigger ")\n\n"
+
+      ,(if (> (vector-length flags-req) 0)
+           `(
+             "**要求フラグ** "
+             ,(intersperse " " (vector->list flags-req))
+             "\n"
+             )
+           ())
+
+      ,(if (> (vector-length flags-exc) 0)
+           `(
+      "**排他フラグ** "
+      ,(intersperse " " (vector->list flags-exc))
+      "\n"
+             )
+           ())
+
+      ,(if (> (vector-length flags-set) 0)
+           `(
+      "**設定フラグ** "
+      ,(intersperse " " (vector->list flags-set))
+      "\n"
+             )
+           ())
+
+      "\n"
+
+      ,(if (string=? type "portal") (show-portal) ())
+      ,(render-lines/markdown lines)
+      "\n\n"
+      )))
+  markdown-content
+  )
+
+(define (read-and-render-scenario-file/markdown await id)
+  (let ((content (read-dialogs-from-db await id)))
+    (with-output-to-file (markdown-file-path id)
+      (^[]
+        (write-tree
+         (reverse
+          (fold (^[conv rest]
+                  (cons (render-dialog/markdown await conv id)
+                        rest))
+                ()
+                content))))))
+
+  `(p (span (a (@ (href ,#"/scenarios/~|id|"))
+               "Back to Scenario"))))
+
 
 (define (render-dialog/edit-button await conv data-id)
   (render-dialog await conv data-id
@@ -578,6 +683,9 @@
 
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
+
+(define (markdown-file-path data-id)
+  #"markdown/~|data-id|.md")
 
 (define (read-and-render-scenario-file/insert await id ord)
   (define (new-form ord)
