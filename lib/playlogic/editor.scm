@@ -221,7 +221,18 @@
                               (if opt (cdr opt) ()))))
                (cons `("**" ,(if (= 0 (string-length char))
                                  "(blank)"
-                                 char) "** " ,text "\n\n")
+                                 char)
+                       "** "
+                       ,text "\n\n"
+                       ,(if (zero? (vector-length options))
+                            ()
+                            `(,(map
+                                (^[option]
+                                  `("*   :question: "
+                                    ,(cdr (assoc "text" option)) "\n"))
+                                options)
+                              "\n")
+                            ))
 
                      rest)))
            () lines)))
