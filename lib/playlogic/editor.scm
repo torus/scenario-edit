@@ -690,6 +690,9 @@
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
 
+(define (dialog-json-file-path data-id)
+  #"json/~|data-id|-dialogs.json")
+
 (define (markdown-file-path data-id)
   #"markdown/~|data-id|.md")
 
@@ -789,6 +792,22 @@
                  (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
              :directory "json")
            'done)))
+
+(define (overwrite-dialog-json-file await dialogs-json filename)
+  (let ((modified-for-unreal
+         (map-to <vector>
+                 (^e (acons "Name" (cdr (assoc "label" e)) e)) dialogs-json)))
+    (await (^[]
+             (call-with-temporary-file
+                 (^[port tmpfile]
+                   (with-output-to-port port
+                     (^[]
+                       (guard (e [else (report-error e)])
+                              (construct-json modified-for-unreal))
+                       (flush)))
+                   (sys-system #"jq '[.[] | {Name,\"label\",type,location,trigger,\"flags-required\",\"flags-exclusive\",\"flags-set\",lines:[.lines[]|{character,text,options}]} ]' < ~tmpfile > ~filename"))
+               :directory "json")
+             'done))))
 
 (define (delete-dialog await dialog-id)
   (query* await
@@ -916,6 +935,9 @@
                          (json-file-path data-id))
 
     (overwrite-markdown-file await data-id)
+
+    (overwrite-dialog-json-file await dialogs-json
+                                (dialog-json-file-path data-id))
 
     (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
           (line-port (open-output-file "csv/Dialogs_lines.csv"))
