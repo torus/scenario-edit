@@ -12,7 +12,7 @@
       (let ((val (assoc key json)))
         (if val
             (resolve (cdr val))
-            (reject "key not found")))
+            (reject #"key not found: ~key")))
       (reject "not an object")))
 
 (define (json-match-array json resolve reject)
@@ -21,7 +21,6 @@
 
 (define (json-match json proc)
   (define (reject err)
-    #?=err
     #f)
 
   (define (o key proc)
