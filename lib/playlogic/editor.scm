@@ -693,6 +693,9 @@
 (define (dialog-json-file-path data-id)
   #"json/~|data-id|-dialogs.json")
 
+(define (triggermap-json-file-path data-id)
+  #"json/~|data-id|-triggermap.json")
+
 (define (markdown-file-path data-id)
   #"markdown/~|data-id|.md")
 
@@ -952,7 +955,54 @@
 
       (for-each close-port (list line-port option-port dialog-port
                                  flag-port triggermap-port portal-port)))
-    "Conversion done!"))
+    "Conversion done!")
+
+  (let ((trigger-map (make-triggermap-from-db await data-id))
+        (filename (triggermap-json-file-path data-id)))
+    (call-with-temporary-file
+        (^[port tmpfile]
+          (with-output-to-port port
+            (^[]
+              (guard (e [else (report-error e)])
+                     (construct-json trigger-map))
+              (flush)))
+          (sys-system #"jq '.' < ~tmpfile > ~filename"))
+      :directory "json"))
+
+  "Done!")
+
+(define (make-triggermap-from-db await data-id)
+  (let ((dialog-ht (make-hash-table string-comparator))
+        (results
+         (query* await
+                 `(SELECT "label" |,| "location" |,| "trigger"
+                          FROM "dialogs"
+                          WHERE "scenario_id" = ,data-id))))
+
+    (for-each
+     (match-lambda
+      (#(label loc trig)
+       (unless (hash-table-exists? dialog-ht loc)
+         (hash-table-put! dialog-ht loc (make-hash-table string-comparator))
+         (hash-table-put! (hash-table-get dialog-ht loc) "Name" loc)
+         (hash-table-put! (hash-table-get dialog-ht loc)
+                          "triggers" (make-hash-table string-comparator)))
+
+       (let ((loc-ht (hash-table-get (hash-table-get dialog-ht loc)
+                                     "triggers")))
+         (unless (hash-table-exists? loc-ht trig)
+           (hash-table-put! loc-ht trig (make-hash-table string-comparator))
+           (hash-table-put! (hash-table-get loc-ht trig) "labels" #()))
+         (hash-table-put! (hash-table-get loc-ht trig)
+                          "labels"
+                          (vector-append
+                           (hash-table-get
+                            (hash-table-get loc-ht trig) "labels")
+                           `#(,label))))))
+     results)
+
+    (list->vector (hash-table-map dialog-ht (^[key val] val)))))
+
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
