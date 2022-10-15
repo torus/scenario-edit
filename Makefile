@@ -19,3 +19,6 @@ check:
 
 en:
 	gosh conv-en.scm
+
+update-en:
+	gosh update-en.scm
