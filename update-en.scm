@@ -10,60 +10,49 @@
 (use json-match)
 
 (define (main . args)
-  (let ((orig-tbl (read-orig-en))
-        (ja-json (read-ja)))
-
-    #?=orig-tbl
-    #?=ja-json
-
+  (let ((table (make-translation-table))
+        (dialogs (read-json "json/2-dialogs.json")))
     (vector-for-each
      (^[dialog]
-       (let ((en-dialog
-              (hash-table-get orig-tbl (assoc-ref dialog "label") #f)))
-         (when en-dialog
-           (replace-dialog! dialog en-dialog))
-         ))
-     ja-json)
+       (let ((lines (assoc-ref dialog "lines")))
+         (vector-for-each
+          (^[line]
+            (let ((text (assoc-ref line "text")))
+              (when (hash-table-contains? table text)
+                (assoc-set! line "text" (hash-table-get table text)))))
+          lines)))
+     dialogs)
 
-    (with-output-to-process "jq . > json/2-dialogs_en_2.json"
+    (with-output-to-process "jq . > json/2-dialogs_en_new.json"
                             (^[]
-                              (construct-json ja-json)))
-    )
+                              (construct-json dialogs))))
   0)
 
-(define (replace-dialog! dialog en-dialog)
+(define (make-translation-table)
+  (let ((orig-ja (read-json "json/2-dialogs_orig.json"))
+        (orig-en (read-json "json/2-dialogs_en.json"))
+        (table (make-hash-table 'string=?)))
 
-  (let ((lines (assoc-ref dialog "lines"))
-        (en-lines (assoc-ref en-dialog "lines")))
+    (unless (= (vector-length orig-ja) (vector-length orig-en))
+      (error "length unmatched"))
 
-    (vector-for-each-with-index
-     (^[index line]
-       (when (< index (vector-length en-lines))
-         (let ((en-line (vector-ref en-lines index)))
-           (assoc-set! line "text" (assoc-ref en-line "text"))
-         ))
-       )
-     lines)
+    (vector-for-each
+     (^[ja-dialog en-dialog]
+       (let ((ja-lines (assoc-ref ja-dialog "lines"))
+             (en-lines (assoc-ref en-dialog "lines")))
+         (vector-for-each
+          (^[ja-line en-line]
+            (let ((ja (assoc-ref ja-line "text"))
+                  (en (assoc-ref en-line "text")))
+              (when (hash-table-contains? table "")
+                (print #"duplicated text: ~ja"))
+              (hash-table-put! table ja en)))
+          ja-lines en-lines)))
+     orig-ja orig-en)
 
+    table))
 
-    )
-
-  )
-
-(define (read-orig-en)
-  (with-input-from-file "json/2-dialogs_en.json"
-    (^[]
-      (let ((json (parse-json))
-            (tbl (make-hash-table 'string=?)))
-
-        (vector-for-each
-         (^[dialog]
-           (let ((label (assoc-ref dialog "label")))
-             (hash-table-put! tbl label dialog)))
-         json)
-        tbl))))
-
-(define (read-ja)
-  (with-input-from-file "json/2-dialogs.json"
+(define (read-json file)
+  (with-input-from-file file
     (^[]
       (parse-json))))
