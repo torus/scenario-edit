@@ -1482,18 +1482,19 @@
             id (json-query json '("title"))))
 
   (define (put-ascii-names json)
-    (query* await
-            `(DELETE FROM "ascii_names" WHERE "scenario_id" = ,(x->number id)
-                     |;|
-                     INSERT INTO "ascii_names"
-                     ("original" |,| "scenario_id" |,| "ascii")
-                     VALUES
-                     ,@(match (json-query json '("locations"))
-                              (#((("label" . label) ("ascii" . ascii)) ...)
-                               (intersperse
-                                '|,| (map (^[l a]
-                                            `(,l |,| ,(x->number id) |,| ,a))
-                                          label ascii)))))))
+    (when (> (vector-length (json-query json '("locations"))) 0)
+      (query* await
+              `(DELETE FROM "ascii_names" WHERE "scenario_id" = ,(x->number id)
+                       |;|
+                       INSERT INTO "ascii_names"
+                       ("original" |,| "scenario_id" |,| "ascii")
+                       VALUES
+                       ,@(match (json-query json '("locations"))
+                                (#((("label" . label) ("ascii" . ascii)) ...)
+                                 (intersperse
+                                  '|,| (map (^[l a]
+                                              `(,l |,| ,(x->number id) |,| ,a))
+                                            label ascii))))))))
 
   (query* await '(BEGIN TRANSACTION))
   (guard (e [else (report-error e)
