@@ -78,6 +78,7 @@
            (container/
             `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
                  (li (a (@ (href "/scenarios/2")) "Scenario #2"))
+                 (li (a (@ (href "/scenarios/3")) "Scenario #3"))
                  (li (a (@ (href "/twitauth")) "Login with Twitter"))
                  (li (a (@ (href "/admin/setup")) "Setup"))))))))
 

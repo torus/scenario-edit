@@ -4,10 +4,10 @@ services:
     build: .
     volumes:
       - .:/code
-      - ../pl-data/Dialogues/json:/code/json
-      - ../pl-data/Dialogues/markdown:/code/markdown
-      - ../pl-data/Dialogues:/code/csv
-      - ../pl-data/Dialogues/images:/code/static/gameassets
+      - ../pl-data/Dialogues3/json:/code/json
+      - ../pl-data/Dialogues3/markdown:/code/markdown
+      - ../pl-data/Dialogues3:/code/csv
+      - ../pl-data/Dialogues3/images:/code/static/gameassets
     ports:
       - "2227:2222"
     expose:
