@@ -96,9 +96,10 @@
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS ascii_names ("
-                        "  original    TEXT PRIMARY KEY"
+                        "  original    TEXT"
                         ", scenario_id INTEGER NOT NULL"
                         ", ascii       TEXT NOT NULL"
+                        ", UNIQUE(original, scenario_id)"
                         ")"))
 
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS sessions ("
