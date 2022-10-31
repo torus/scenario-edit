@@ -8,7 +8,7 @@
 (define (main args)
   (let* ((dialogs (make-dialogs (cadr args)))
          (scenario (make-scenario dialogs)))
-    (with-output-to-process "jq . > ../json/3.json"
+    (with-output-to-process "jq . > ../json/3_x.json"
                             (^[]
                               (construct-json scenario))))
   0)
@@ -26,25 +26,35 @@
       (let ((reader (cute (make-csv-reader #\tab) port)))
         (reader)                        ; skip the header
         (let ((dialogs
-               (let loop ((result ()))
+               (let loop ((result ())
+                          (prev-label ()))
                  (let ((row (reader)))
                    (if (eof-object? row)
                        (list->vector (reverse result))
-                       (loop (cons (read-row row) result))))
-                 )))
+                       (let ((dialog (read-row row prev-label)))
+                         (loop (append dialog result)
+                               (if (null? dialog)
+                                   prev-label
+                                   (list (cdr (assoc "label" (car dialog))))))
+                         ))))))
           dialogs)))))
 
-(define (read-row row)
-  (match row ((id file-no rank category title summary location characters notes)
-              `(("label" . ,#"~|id|~|title|")
-                ("type" . "area")
-                ("location" . ,location)
-                ("trigger" . "?")
-                ("lines" . #((("character" . "")
-                              ("text" . ,#"~|id|/~|title|/~|rank|/~|category|/~|summary|/~|location|/~|characters|/~notes")
-                              ("options" . #()))))
-                )
-
-
-))
-)
+(define (read-row row prev-label)
+  (match row ((id rank category title summary location characters notes loc2 trigger)
+              (if (zero? (string-length loc2))
+                  ()
+                  (let ((trig (if (zero? (string-length trigger))
+                                  loc2
+                                  trigger)))
+                    (list`(("label" . ,#"~|id|_~|title|")
+                           ("type" . "area")
+                           ("location" . ,loc2)
+                           ("trigger" . ,trig)
+                           ("flags-required" . ,(list->vector prev-label))
+                           ("lines" . #((("character" . "")
+                                         ("text" . ,#"~|id|/~|title|/~|rank|/~|category|/~|summary|/~|location|/~|characters|/~notes")
+                                         ("options" . #()))))
+                           ))
+                    ))
+              ))
+  )
