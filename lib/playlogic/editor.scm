@@ -1271,9 +1271,10 @@
            "digraph {"
            ,(map
              (^[row]
-               (let ((from (vector-ref row 0))
-                     (to   (vector-ref row 1)))
-                 #"~from -> ~to;\n"))
+               (let ((from  (vector-ref row 0))
+                     (to    (vector-ref row 1))
+                     (label (vector-ref row 2)))
+                 #"~from [shape=\"box\"]\n~from -> ~to [label=~|label| fontsize=9];\n"))
              links)
            "}")
       ,(container/
@@ -1282,6 +1283,7 @@
   (let ((links (query*
                 await
                 '(SELECT DISTINCT "d1" |.| "location" |,| "d2" |.| "location"
+                         |,| "d1" |.| "trigger"
                          FROM "dialogs" "d1"
                          |,| "dialogs" "d2"
                          |,| "portals" "p"
