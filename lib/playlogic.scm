@@ -140,9 +140,9 @@
        (let-params req ([id "p:1"]
                         [label "p:2"]
                         [json "q"])
-         (update-with-json await id json)
-         (respond/redirect
-          req #"/scenarios/~|id|#label-~label")))))
+         (let ((current-label (update-with-json await id json)))
+           (respond/redirect
+            req #"/scenarios/~|id|#label-~(escape-label current-label)"))))))
 
   (define-http-handler (POST) #/^\/scenarios\/(\d+)\/delete/
     (handle-request/post

@@ -8,6 +8,7 @@
   (use text.csv)
   (use text.tree)
   (use util.match)
+  (use rfc.uri)
 
   (use makiki)
 
@@ -34,6 +35,7 @@
           location-image-url
           set-ascii-name
           create-page/title
+          escape-label
 
           read-dialog-detail-from-db
 
@@ -103,19 +105,23 @@
              (cons (render-line char text options) rest)))
          () lines)))
 
+(define (escape-label label)
+  (uri-encode-string label))
+
 (define (edit-buttons data-id label)
-  `((div (@ (class "column is-1"))
-         (form (@ (method "post")
-                  (action ,#"/scenarios/~|data-id|/delete"))
-               (input (@ (type "hidden")
-                         (name "label")
-                         (value ,label)))
-               (button (@ (class "button is-danger"))
-                       ,(fas-icon/ "trash-alt"))))
-    (div (@ (class "column is-1"))
-         (a (@ (class "button")
-               (href ,#"/scenarios/~|data-id|/edit/~|label|#form"))
-            ,(fas-icon/ "edit")))))
+  (let ((escaped-label (escape-label label)))
+    `((div (@ (class "column is-1"))
+           (form (@ (method "post")
+                    (action ,#"/scenarios/~|data-id|/delete"))
+                 (input (@ (type "hidden")
+                           (name "label")
+                           (value ,label)))
+                 (button (@ (class "button is-danger"))
+                         ,(fas-icon/ "trash-alt"))))
+      (div (@ (class "column is-1"))
+           (a (@ (class "button")
+                 (href ,#"/scenarios/~|data-id|/edit/~|escaped-label|#form"))
+              ,(fas-icon/ "edit"))))))
 
 (define (render-dialog await conv data-id . additioanl-elements)
   (define (get name)
@@ -896,7 +902,8 @@
   (cond ((assoc "ord" form-data)
          (insert-dialog await data-id form-data))
         ((assoc "original-label" form-data)
-         (update-existing-dialog await data-id form-data))))
+         (update-existing-dialog await data-id form-data)))
+  (cdr (assoc "label" form-data)))
 
 (define (convert-json-to-csv await data-id)
   (define (get-location-names)
