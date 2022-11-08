@@ -227,36 +227,53 @@
                 *session-table* session-id
                 (assoc-set! session "location" new-location))
                #f))))
-      `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
-              ,(fas-icon/ "walking")
-              ,#" ~new-location へ"))))
+      `(a (@ (class "button")
+             (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
+          ,(fas-icon/ "walking")
+          (span ,#" ~new-location へ"))))
 
   (define (show-option dialog-id trigger icon)
-    `(li
-      (a (@ (href
+    `(a (@ (class "button")
+           (href
              ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
             ,@(if (string=? (x->string dialog-id) (x->string cur-dialog-id))
                   `((class "is-active"))
                   ())
             (trigger ,trigger))
-         ,icon ,#" ~trigger")))
+         ,icon (span ,#" ~trigger")))
 
-  `((ul (@ (class "xxx"))
-        ,@(map
-           (^[row]
-             (await
-              (^[]
-                (let ((dialog-id (vector-ref row 0))
-                      (type      (vector-ref row 1))
-                      (trigger   (vector-ref row 2)))
-                  (case (string->symbol type)
-                    ((portal)
-                     (show-portal dialog-id trigger))
-                    (else
-                     (show-option dialog-id trigger
-                                  (icon-for-type type))))
-                  ))))
-           (get-data loc (vector->list (json-query session '("flags"))))))))
+  (let loop ((data (get-data loc (vector->list (json-query session '("flags")))))
+             (options ())
+             (moves ()))
+    (if (null? data)
+        `((h3 (@ (class "title is-4")) "OPTIONS")
+          (div (@ (class "columns"))
+               (div (@ (class "column"))
+                    (p (@ (class "buttons"))
+                       ,@options)))
+          (h3 (@ (class "title is-4")) "MOVES")
+          (div (@ (class "columns"))
+               (div (@ (class "column"))
+                    (p (@ (class "buttons"))
+                       ,@moves))))
+        (let ((row (car data)))
+          (await
+           (^[]
+             (let ((dialog-id (vector-ref row 0))
+                   (type      (vector-ref row 1))
+                   (trigger   (vector-ref row 2)))
+               (case (string->symbol type)
+                 ((portal)
+                  (loop (cdr data)
+                        options
+                        (cons (show-portal dialog-id trigger) moves)))
+                 (else
+                  (loop (cdr data)
+                        (cons
+                         (show-option dialog-id trigger
+                                      (icon-for-type type)) options)
+                        moves)))))))))
+  )
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
@@ -294,7 +311,6 @@
          ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
              (if (> (vector-length jump) 0)
                  (render-jump (vector-ref jump 0))
-
                  ()))))
 
   `(div (@ (class "columns"))
