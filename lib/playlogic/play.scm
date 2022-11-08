@@ -28,18 +28,18 @@
   (define initial-loc #f)
   (let ((rset
          (query* await
-                    '(SELECT "location" FROM "dialogs"
-                       WHERE "scenario_id" = ? ORDER BY "ord" LIMIT 1)
-                    data-id)))
-     (for-each
-      (^[row]
-        (await
-         (^[]
-           (let ((loc (vector-ref row 0)))
-             (print #"location: ~loc")
-             (set! initial-loc loc)
-             ))))
-      rset))
+                 '(SELECT "location" FROM "dialogs"
+                          WHERE "scenario_id" = ? ORDER BY "ord" LIMIT 1)
+                 data-id)))
+    (for-each
+     (^[row]
+       (await
+        (^[]
+          (let ((loc (vector-ref row 0)))
+            (print #"location: ~loc")
+            (set! initial-loc loc)
+            ))))
+     rset))
   (alist-copy `(("location" . ,initial-loc)
                 ("flags" . #()))))
 
@@ -110,8 +110,7 @@
                         ,(cancel-btn))))))))
 
 (define (render-page await data-id session-id session cur-dialog-id . content)
-  #?=content
-  (let ((loc (json-query #?=session '("location"))))
+  (let ((loc (json-query session '("location"))))
     `(,(play-page-header await data-id session-id)
       ,(container/
         `(div (@ (class "columns"))
@@ -141,12 +140,12 @@
          (let ((new-session (make-session await data-id)))
            (hash-table-put! *session-table* (x->string session-id) new-session)
            (let ((content (render-empty-dialog await data-id session-id)))
-             (render-page await data-id session-id new-session #f #?=content))))
+             (render-page await data-id session-id new-session #f content))))
      )))
 
 (define (render-empty-dialog  await data-id session-id)
   (let* ((session (hash-table-get *session-table* session-id #f))
-         (loc (json-query #?=session '("location"))))
+         (loc (json-query session '("location"))))
     (render-options await data-id session-id loc #f))
   )
 
@@ -243,21 +242,21 @@
          ,icon ,#" ~trigger")))
 
   `((ul (@ (class "xxx"))
-       ,@(map
-          (^[row]
-            (await
-             (^[]
-               (let ((dialog-id (vector-ref row 0))
-                     (type      (vector-ref row 1))
-                     (trigger   (vector-ref row 2)))
-                 (case (string->symbol type)
-                   ((portal)
-                    (show-portal dialog-id trigger))
-                   (else
-                    (show-option dialog-id trigger
-                                 (icon-for-type type))))
-                 ))))
-          (get-data loc (vector->list (json-query session '("flags"))))))))
+        ,@(map
+           (^[row]
+             (await
+              (^[]
+                (let ((dialog-id (vector-ref row 0))
+                      (type      (vector-ref row 1))
+                      (trigger   (vector-ref row 2)))
+                  (case (string->symbol type)
+                    ((portal)
+                     (show-portal dialog-id trigger))
+                    (else
+                     (show-option dialog-id trigger
+                                  (icon-for-type type))))
+                  ))))
+           (get-data loc (vector->list (json-query session '("flags"))))))))
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
@@ -361,24 +360,24 @@
 
 (define (get-location-for-portal await dialog-id)
   (let ((dest (let ((rset
-                      (query* await
-                              '(SELECT "d" |.| "location"
-                  FROM "dialogs" "d" |,| "portals" "p"
-                  WHERE "p" |.| "dialog_id" = ?
-                    AND "d" |.| "trigger" = "p" |.| "destination"
-                 LIMIT 1)
-                              dialog-id)))
+                     (query* await
+                             '(SELECT "d" |.| "location"
+                                      FROM "dialogs" "d" |,| "portals" "p"
+                                      WHERE "p" |.| "dialog_id" = ?
+                                      AND "d" |.| "trigger" = "p" |.| "destination"
+                                      LIMIT 1)
+                             dialog-id)))
                 (map (cut vector-ref <> 0) rset))))
     (car dest)))
 
 (define (get-location-for-dialog await dialog-id)
   (let ((dest (let ((rset
-                      (query* await
-                              '(SELECT "location"
-                                       FROM "dialogs"
-                                       WHERE "dialog_id" = ?
-                                       LIMIT 1)
-                              dialog-id)))
+                     (query* await
+                             '(SELECT "location"
+                                      FROM "dialogs"
+                                      WHERE "dialog_id" = ?
+                                      LIMIT 1)
+                             dialog-id)))
                 (map (cut vector-ref <> 0) rset))))
     (car dest)))
 
