@@ -153,6 +153,47 @@
   (define (get name)
     (cdr (assoc name conv)))
 
+  (define (last-line-has-no-jump-options? dialog-id)
+    (let ((non-jumps
+           (query* await
+                   '(SELECT COUNT (*) FROM
+                            "options" "o" |,| "lines" "l" |,| "dialogs" "d"
+                            LEFT OUTER JOIN "option_jumps" "j"
+                            ON "j" |.| "option_id" = "o" |.| "option_id"
+                            WHERE "o" |.| "line_id" = "l" |.| "line_id"
+                            AND "l" |.| "dialog_id" = "d" |.| "dialog_id"
+                            AND "l" |.| "line_id" =
+                            (SELECT "line_id" FROM "lines" "l" |,| "dialogs" "d"
+                                    WHERE "l" |.| "dialog_id"
+                                    = "d" |.| "dialog_id"
+                                    AND "d" |.| "dialog_id" = ?
+                                    ORDER BY "l" |.| "ord" DESC LIMIT 1)
+                            AND "j" |.| "destination" IS NULL
+                            )
+                   dialog-id))
+          (jumps
+           (query* await
+                   '(SELECT COUNT (*) FROM
+                            "options" "o" |,| "lines" "l" |,| "dialogs" "d"
+                            LEFT OUTER JOIN "option_jumps" "j"
+                            ON "j" |.| "option_id" = "o" |.| "option_id"
+                            WHERE "o" |.| "line_id" = "l" |.| "line_id"
+                            AND "l" |.| "dialog_id" = "d" |.| "dialog_id"
+                            AND "l" |.| "line_id" =
+                            (SELECT "line_id" FROM "lines" "l" |,| "dialogs" "d"
+                                    WHERE "l" |.| "dialog_id"
+                                    = "d" |.| "dialog_id"
+                                    AND "d" |.| "dialog_id" = ?
+                                    ORDER BY "l" |.| "ord" DESC LIMIT 1)
+                            AND "j" |.| "destination" IS NOT NULL
+                            )
+                   dialog-id)
+           ))
+
+      (and (> (vector-ref (car #?=jumps) 0) 0)
+           (= (vector-ref (car #?=non-jumps) 0) 0))
+      ))
+
   (let ((dialog-id (get "id"))
         (label     (get "label"))
         (lines     (get "lines"))
@@ -190,7 +231,9 @@
 
       ,@(render-lines await data-id session-id lines)
 
-      ,(render-options await data-id session-id loc dialog-id))
+      ,@(if (last-line-has-no-jump-options? dialog-id)
+            ()
+            (list (render-options await data-id session-id loc dialog-id))))
     ))
 
 (define (render-options await data-id session-id loc cur-dialog-id)
@@ -235,45 +278,47 @@
   (define (show-option dialog-id trigger icon)
     `(a (@ (class "button")
            (href
-             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
-            ,@(if (string=? (x->string dialog-id) (x->string cur-dialog-id))
-                  `((class "is-active"))
-                  ())
-            (trigger ,trigger))
-         ,icon (span ,#" ~trigger")))
+            ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
+           ,@(if (string=? (x->string dialog-id) (x->string cur-dialog-id))
+                 `((class "is-active"))
+                 ())
+           (trigger ,trigger))
+        ,icon (span ,#" ~trigger")))
 
-  (let loop ((data (get-data loc (vector->list (json-query session '("flags")))))
-             (options ())
-             (moves ()))
-    (if (null? data)
-        `((h3 (@ (class "title is-4")) "OPTIONS")
-          (div (@ (class "columns"))
-               (div (@ (class "column"))
-                    (p (@ (class "buttons"))
-                       ,@options)))
-          (h3 (@ (class "title is-4")) "MOVES")
-          (div (@ (class "columns"))
-               (div (@ (class "column"))
-                    (p (@ (class "buttons"))
-                       ,@moves))))
-        (let ((row (car data)))
-          (await
-           (^[]
-             (let ((dialog-id (vector-ref row 0))
-                   (type      (vector-ref row 1))
-                   (trigger   (vector-ref row 2)))
-               (case (string->symbol type)
-                 ((portal)
-                  (loop (cdr data)
-                        options
-                        (cons (show-portal dialog-id trigger) moves)))
-                 (else
-                  (loop (cdr data)
-                        (cons
-                         (show-option dialog-id trigger
-                                      (icon-for-type type)) options)
-                        moves)))))))))
-  )
+  (define (render-general-options)
+    (let loop ((data (get-data loc (vector->list (json-query session '("flags")))))
+               (options ())
+               (moves ()))
+      (if (null? data)
+          `((h3 (@ (class "title is-4")) "OPTIONS")
+            (div (@ (class "columns"))
+                 (div (@ (class "column"))
+                      (p (@ (class "buttons"))
+                         ,@options)))
+            (h3 (@ (class "title is-4")) "MOVES")
+            (div (@ (class "columns"))
+                 (div (@ (class "column"))
+                      (p (@ (class "buttons"))
+                         ,@moves))))
+          (let ((row (car data)))
+            (await
+             (^[]
+               (let ((dialog-id (vector-ref row 0))
+                     (type      (vector-ref row 1))
+                     (trigger   (vector-ref row 2)))
+                 (case (string->symbol type)
+                   ((portal)
+                    (loop (cdr data)
+                          options
+                          (cons (show-portal dialog-id trigger) moves)))
+                   (else
+                    (loop (cdr data)
+                          (cons
+                           (show-option dialog-id trigger
+                                        (icon-for-type type)) options)
+                          moves))))))))))
+
+  (render-general-options))
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
@@ -293,23 +338,28 @@
 
   (define (render-jump label)
     (let ((dialog-id
-           (car (map (cut vector-ref <> 0)
-                     (query* await
-                             `(SELECT "dialog_id" FROM "dialogs"
-                                      WHERE "label" = ,label))))))
-      `((a (@ (href ,(jump-url dialog-id)))
-           (span (@ (class "tag is-info"))
-                 ,(fas-icon/ "arrow-circle-right") " "
-                 ,label)))))
+           (let ((dialogs (query* await
+                                  `(SELECT "dialog_id" FROM "dialogs"
+                                           WHERE "label" = ,label))))
+             (if (null? dialogs)
+                 #f
+                 (car (map (cut vector-ref <> 0)
+                           dialogs))))))
+      (if dialog-id
+          `((a (@ (href ,(jump-url dialog-id)))
+               ,(fas-icon/ "arrow-circle-right")
+               (span ,#" ~label")))
+          `(,(fas-icon/ "arrow-circle-right") (span ,#" ~label")))))
 
   (define (render-option o)
-    `(li ,(fas-icon/ "angle-right")
-         ,(cdr (assoc "text" o)) " "
-         ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                 (cdr (safe-assoc-vec "flags-required" o))))
-         " "
-         ,@(let ((jump (cdr (safe-assoc-vec "jump-to" o))))
-             (if (> (vector-length jump) 0)
+    (let* ((jump (cdr (safe-assoc-vec "jump-to" o)))
+           (has-jump? (> (vector-length jump) 0)))
+      `(li ,(fas-icon/ "angle-right")
+           ,(cdr (assoc "text" o)) " "
+           ,@(intersperse " " (map (^f `(span (@ (class "tag is-primary")) ,f))
+                                   (cdr (safe-assoc-vec "flags-required" o))))
+           " "
+           ,@(if has-jump?
                  (render-jump (vector-ref jump 0))
                  ()))))
 
