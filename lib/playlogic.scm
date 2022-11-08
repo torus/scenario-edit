@@ -233,8 +233,12 @@
        (let-params req ([id         "p:1"]
                         [session-id "p:2"]
                         [cont-id    "p:3"])
-         (play-game-cont! await id session-id cont-id)
-         (respond/redirect req #"/scenarios/~|id|/play/~session-id")))))
+         (let ((result (play-game-cont! await id session-id cont-id)))
+           (if (and (pair? result) (eq? 'dialog-id (car result)))
+               (let ((dialog-id (cdr result)))
+                 (respond/redirect req #"/scenarios/~|id|/play/~|session-id|/dialogs/~dialog-id"))
+               (respond/redirect req #"/scenarios/~|id|/play/~session-id"))
+           )))))
 
   (define-http-handler #/^\/scenarios\/(\d+)\/play\/(\d+)\/dialogs\/(\d+)$/
     (handle-request

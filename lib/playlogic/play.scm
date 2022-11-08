@@ -110,7 +110,8 @@
                         ,(cancel-btn))))))))
 
 (define (render-page await data-id session-id session cur-dialog-id . content)
-  (let ((loc (json-query session '("location"))))
+  #?=content
+  (let ((loc (json-query #?=session '("location"))))
     `(,(play-page-header await data-id session-id)
       ,(container/
         `(div (@ (class "columns"))
@@ -135,17 +136,26 @@
    "Playing!"
    (let ((session (hash-table-get *session-table* session-id #f)))
      (if session
-         (render-page await data-id session-id session #f)
+         (let ((content (render-empty-dialog await data-id session-id)))
+           (render-page await data-id session-id session #f content))
          (let ((new-session (make-session await data-id)))
            (hash-table-put! *session-table* (x->string session-id) new-session)
-           (render-page await data-id session-id new-session #f)))
+           (let ((content (render-empty-dialog await data-id session-id)))
+             (render-page await data-id session-id new-session #f #?=content))))
      )))
+
+(define (render-empty-dialog  await data-id session-id)
+  (let* ((session (hash-table-get *session-table* session-id #f))
+         (loc (json-query #?=session '("location"))))
+    (render-options await data-id session-id loc #f))
+  )
 
 (define (render-dialog await conv data-id session-id)
   (define (get name)
     (cdr (assoc name conv)))
 
-  (let ((label     (get "label"))
+  (let ((dialog-id (get "id"))
+        (label     (get "label"))
         (lines     (get "lines"))
         (loc       (get "location"))
         (type      (get "type"))
@@ -179,21 +189,99 @@
                   (map (^f `(span (@ (class "tag is-info")) ,f))
                        flags-set))))
 
-      ,@(render-lines await data-id session-id lines))
+      ,@(render-lines await data-id session-id lines)
+
+      ,(render-options await data-id session-id loc dialog-id))
     ))
+
+(define (render-options await data-id session-id loc cur-dialog-id)
+  (define (get-data loc flags)
+    (query* await
+            `(SELECT "d" |.| "dialog_id"
+                     |,| "d" |.| "type"
+                     |,| "d" |.| "trigger"
+                     FROM "dialogs" "d"
+                     LEFT OUTER JOIN
+                     (SELECT * FROM "flags_required" WHERE "flag" NOT IN
+                             ,(intersperse '|,| flags))
+                     "fr"
+                     ON "d" |.| "dialog_id" = "fr" |.| "dialog_id"
+                     LEFT OUTER JOIN
+                     (SELECT * FROM "flags_exclusive" WHERE "flag" IN
+                             ,(intersperse '|,| flags))
+                     "fe"
+                     ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
+                     WHERE "d" |.| "location" = ,loc
+                     AND "fr" |.| "flag" IS NULL
+                     AND "fe" |.| "flag" IS NULL
+                     ORDER BY "type")))
+
+  (define session (hash-table-get *session-table* session-id #f))
+
+  (define (show-portal dialog-id trigger)
+    (let* ((new-location (get-location-for-portal
+                          await dialog-id))
+           (cont-id
+            (cont-table-add
+             (^[]
+               (hash-table-put!
+                *session-table* session-id
+                (assoc-set! session "location" new-location))
+               #f))))
+      `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
+              ,(fas-icon/ "walking")
+              ,#" ~new-location へ"))))
+
+  (define (show-option dialog-id trigger icon)
+    `(li
+      (a (@ (href
+             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
+            ,@(if (string=? (x->string dialog-id) (x->string cur-dialog-id))
+                  `((class "is-active"))
+                  ())
+            (trigger ,trigger))
+         ,icon ,#" ~trigger")))
+
+  `((ul (@ (class "xxx"))
+       ,@(map
+          (^[row]
+            (await
+             (^[]
+               (let ((dialog-id (vector-ref row 0))
+                     (type      (vector-ref row 1))
+                     (trigger   (vector-ref row 2)))
+                 (case (string->symbol type)
+                   ((portal)
+                    (show-portal dialog-id trigger))
+                   (else
+                    (show-option dialog-id trigger
+                                 (icon-for-type type))))
+                 ))))
+          (get-data loc (vector->list (json-query session '("flags"))))))))
 
 (define (safe-assoc-vec name alist)
   (or (assoc name alist) (cons #f #())))
 
 (define (render-line await data-id session-id char text options)
+  (define (jump-url dialog-id)
+    (let* ((new-location (get-location-for-dialog await dialog-id))
+           (cont-id
+            (cont-table-add
+             (^[]
+               (let ((session (hash-table-get *session-table* session-id #f)))
+                 (hash-table-put!
+                  *session-table* session-id
+                  (assoc-set! session "location" new-location)))
+               (cons 'dialog-id dialog-id)))))
+      #"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
+
   (define (render-jump label)
     (let ((dialog-id
            (car (map (cut vector-ref <> 0)
                      (query* await
                              `(SELECT "dialog_id" FROM "dialogs"
                                       WHERE "label" = ,label))))))
-      `((a (@ (href
-               ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id"))
+      `((a (@ (href ,(jump-url dialog-id)))
            (span (@ (class "tag is-info"))
                  ,(fas-icon/ "arrow-circle-right") " "
                  ,label)))))
@@ -283,6 +371,17 @@
                 (map (cut vector-ref <> 0) rset))))
     (car dest)))
 
+(define (get-location-for-dialog await dialog-id)
+  (let ((dest (let ((rset
+                      (query* await
+                              '(SELECT "location"
+                                       FROM "dialogs"
+                                       WHERE "dialog_id" = ?
+                                       LIMIT 1)
+                              dialog-id)))
+                (map (cut vector-ref <> 0) rset))))
+    (car dest)))
+
 (define (read-dialog-from-db await dialog-id)
   (let ((rset
          (query*
@@ -307,7 +406,8 @@
              (^[]
                (hash-table-put!
                 *session-table* session-id
-                (assoc-set! session "location" new-location))))))
+                (assoc-set! session "location" new-location))
+               #f))))
       `(li (a (@ (href ,#"/scenarios/~|data-id|/play/~|session-id|/do/~cont-id"))
               ,(fas-icon/ "walking")
               ,#" ~new-location へ"))))
@@ -343,33 +443,15 @@
                      AND "fe" |.| "flag" IS NULL
                      ORDER BY "type")))
 
-  (define (show-options loc flags)
+  (define (show-state loc flags)
     `(aside (@ (class "menu"))
-            (p (@ (class "menu-label"))
-               "Options")
-            (ul (@ (class "menu-list"))
-                ,@(map
-                   (^[row]
-                     (await
-                      (^[]
-                        (let ((dialog-id (vector-ref row 0))
-                              (type      (vector-ref row 1))
-                              (trigger   (vector-ref row 2)))
-                          (case (string->symbol type)
-                            ((portal)
-                             (show-portal dialog-id trigger))
-                            (else
-                             (show-option dialog-id trigger
-                                          (icon-for-type type))))
-                          ))))
-                   (get-data loc (vector->list (json-query session '("flags"))))))
             (p (@ (class "menu-label")) "Flags")
             (ul (@ (class "menu-list"))
                 ,@(map (^f `(li ,f)) flags))))
 
   (let ((loc (json-query session '("location")))
         (flags (json-query session '("flags"))))
-    (show-options loc flags)))
+    (show-state loc flags)))
 
 (define *cont-id* 0)
 (define *cont-table* (make-hash-table 'string=?))
