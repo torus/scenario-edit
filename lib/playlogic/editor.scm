@@ -38,6 +38,7 @@
           escape-label
 
           read-dialog-detail-from-db
+          render-dialog-detail-by-dialog-id
 
           icon-for-type
           ))
@@ -123,6 +124,33 @@
                  (href ,#"/scenarios/~|data-id|/edit/~|escaped-label|#form"))
               ,(fas-icon/ "edit"))))))
 
+(define (render-dialog-detail-by-dialog-id await dialog-id)
+  (let ((detail #?=(read-dialog-detail-by-dialog-id await #?=dialog-id "")))
+    (render-dialog-details (cdr (assoc "flags-required" detail))
+                           (cdr (assoc "flags-exclusive" detail))
+                           (cdr (assoc "flags-set" detail))
+                           (cdr (assoc "lines" detail)))))
+
+(define (render-dialog-details flags-req flags-exc flags-set lines)
+  `((div (@ (class "columns"))
+         (div (@ (class "column is-one-third pt-0"))
+              ,(intersperse
+                " "
+                (map (^f `(span (@ (class "tag is-primary")) ,f))
+                     flags-req)))
+         (div (@ (class "column is-one-third pt-0"))
+              ,(intersperse
+                " "
+                (map (^f `(span (@ (class "tag is-danger")) ,f))
+                     flags-exc)))
+         (div (@ (class "column is-one-third pt-0"))
+              ,(intersperse
+                " "
+                (map (^f `(span (@ (class "tag is-info")) ,f))
+                     flags-set))))
+
+    ,(render-lines lines)))
+
 (define (render-dialog await conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
@@ -171,25 +199,9 @@
                        (div (@ (class "column is-1 pt-0"))
                             (p (@ (class "has-text-grey"))
                                "0x" ,(number->string ord 16))))
-                 `(div (@ (class "columns"))
-                       (div (@ (class "column is-one-third pt-0"))
-                            ,(intersperse
-                              " "
-                              (map (^f `(span (@ (class "tag is-primary")) ,f))
-                                   flags-req)))
-                       (div (@ (class "column is-one-third pt-0"))
-                            ,(intersperse
-                              " "
-                              (map (^f `(span (@ (class "tag is-danger")) ,f))
-                                   flags-exc)))
-                       (div (@ (class "column is-one-third pt-0"))
-                            ,(intersperse
-                              " "
-                              (map (^f `(span (@ (class "tag is-info")) ,f))
-                                   flags-set))))
-
+                 (render-dialog-details flags-req flags-exc flags-set lines)
                  (if (string=? type "portal") (show-portal) ())
-                 (render-lines lines))))))
+)))))
 
 (define (render-dialog/markdown await conv data-id)
   (define (get name)
@@ -561,6 +573,50 @@
             (cut read-dialog-detail-from-db await <>)
             results)))
 
+(define (read-dialog-detail-by-dialog-id await dialog-id type)
+  `(("lines" .
+     ,(map-to <vector>
+              (^[row]
+                (read-line-from-db await row))
+              (query* await
+                      '(SELECT "line_id" |,| "character" |,| "text" |,| "ord"
+                               FROM "lines"
+                               WHERE "dialog_id" = ?
+                               ORDER BY "ord")
+                      dialog-id)))
+    ("flags-required" .
+     ,(map-to <vector> (^[row] (read-flags-from-db await row))
+              (query* await
+                      '(SELECT "flag"
+                               FROM "flags_required"
+                               WHERE "dialog_id" = ?)
+                      dialog-id)))
+    ("flags-exclusive" .
+     ,(map-to <vector> (^[row] (read-flags-from-db await row))
+              (query* await
+                      '(SELECT "flag"
+                               FROM "flags_exclusive"
+                               WHERE "dialog_id" = ?)
+                      dialog-id)))
+    ("flags-set" .
+     ,(map-to <vector> (^[row] (read-flags-from-db await row))
+              (query* await
+                      '(SELECT "flag"
+                               FROM "flags_set"
+                               WHERE "dialog_id" = ?)
+                      dialog-id)))
+
+    ,@(if (string=? type "portal")
+          `(("portal-destination" .
+             ,(car (map (^[row] (vector-ref row 0))
+                        (query* await
+                                '(SELECT "destination"
+                                         FROM "portals"
+                                         WHERE "dialog_id" = ?)
+                                dialog-id)))))
+          ()))
+  )
+
 (define (read-dialog-detail-from-db await row)
   (let ((dialog-id (vector-ref row 0))
         (label   (vector-ref row 1))
@@ -574,47 +630,9 @@
       ("location" . ,loc)
       ("trigger" . ,trigger)
       ("ord" . ,ord)
-      ("lines" .
-       ,(map-to <vector>
-                (^[row]
-                  (read-line-from-db await row))
-                (query* await
-                        '(SELECT "line_id" |,| "character" |,| "text" |,| "ord"
-                                 FROM "lines"
-                                 WHERE "dialog_id" = ?
-                                 ORDER BY "ord")
-                        dialog-id)))
-      ("flags-required" .
-       ,(map-to <vector> (^[row] (read-flags-from-db await row))
-                (query* await
-                        '(SELECT "flag"
-                                 FROM "flags_required"
-                                 WHERE "dialog_id" = ?)
-                        dialog-id)))
-      ("flags-exclusive" .
-       ,(map-to <vector> (^[row] (read-flags-from-db await row))
-                (query* await
-                        '(SELECT "flag"
-                                 FROM "flags_exclusive"
-                                 WHERE "dialog_id" = ?)
-                        dialog-id)))
-      ("flags-set" .
-       ,(map-to <vector> (^[row] (read-flags-from-db await row))
-                (query* await
-                        '(SELECT "flag"
-                                 FROM "flags_set"
-                                 WHERE "dialog_id" = ?)
-                        dialog-id)))
 
-      ,@(if (string=? typ "portal")
-            `(("portal-destination" .
-               ,(car (map (^[row] (vector-ref row 0))
-                          (query* await
-                                  '(SELECT "destination"
-                                           FROM "portals"
-                                           WHERE "dialog_id" = ?)
-                                  dialog-id)))))
-            ()))))
+      ,@(read-dialog-detail-by-dialog-id await dialog-id typ)
+)))
 
 (define (read-flags-from-db await row)
   (let ((flag (vector-ref row 0)))
