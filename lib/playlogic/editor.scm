@@ -1303,7 +1303,7 @@
                               ,(icon-for-type typ) " " (span ,trg)))))
            triggers)))
 
-  (let ((content (read-dialogs-from-db await data-id "location" '= loc))
+  (let ((content (read-dialogs-from-db/full await data-id "location" '= loc))
         (ascii   (get-ascii-name await data-id loc)))
     `(div (@ (class "container"))
           ((div (@ (class "block"))
