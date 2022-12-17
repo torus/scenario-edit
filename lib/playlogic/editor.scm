@@ -38,6 +38,7 @@
           escape-label
 
           read-dialog-detail-from-db
+          read-dialog-detail-from-db/full
           render-dialog-detail-by-dialog-id
 
           icon-for-type

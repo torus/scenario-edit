@@ -190,8 +190,8 @@
                    dialog-id)
            ))
 
-      (and (> (vector-ref (car #?=jumps) 0) 0)
-           (= (vector-ref (car #?=non-jumps) 0) 0))
+      (and (> (vector-ref (car jumps) 0) 0)
+           (= (vector-ref (car non-jumps) 0) 0))
       ))
 
   (let ((dialog-id (get "id"))
@@ -463,7 +463,7 @@
           dialog-id)))
     (map
      (^[row]
-       (read-dialog-detail-from-db await row))
+       (read-dialog-detail-from-db/full await row))
      rset)))
 
 (define (show-game-state await data-id session-id session cur-dialog-id)
