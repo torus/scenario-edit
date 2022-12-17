@@ -157,20 +157,7 @@
 
   (define (show-portal)
     (define dest (get "portal-destination"))
-    `(div (@ (class "columns"))
-          (div (@ (class "column"))
-               ,(fas-icon/ "walking") " " ,dest " "
-               ,(map
-                 (^[row]
-                   (let ((loc (vector-ref row 0)))
-                     `(,(fas-icon/ "map-marker-alt")
-                       (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                          ,loc))))
-                 (query* await
-                         '(SELECT DISTINCT "location" FROM "dialogs"
-                                  WHERE "type" = "portal"
-                                  AND "trigger" = ?)
-                         dest)))))
+    (render-portal await data-id dest))
 
   (let ((dialog-id (get "id"))
         (label     (get "label"))
@@ -180,22 +167,8 @@
         (ord       (get "ord")))
     `((section (@ (class "section") (id ,#"label-~label"))
                ,(container/
-                 `(div (@ (class "columns is-vcentered"))
-                       ,@additioanl-elements
-                       (div (@ (class "column is-1 pt-0"))
-                            (a (@ (class "button is-white anchor")
-                                  (href ,#"#label-~label"))
-                               ,(fas-icon/ "anchor")))
-                       (div (@ (class "column pt-0"))
-                            (h4 (@ (class "title is-4"))
-                                ,(icon-for-type type) " " ,label))
-                       (div (@ (class "column is-3 pt-0"))
-                            (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                                  ,loc)
-                               ,(fas-icon/ "caret-right") ,trigger))
-                       (div (@ (class "column is-1 pt-0"))
-                            (p (@ (class "has-text-grey"))
-                               "0x" ,(number->string ord 16))))
+                 (render-dialog-header data-id label loc type trigger ord
+                                       additioanl-elements)
 
                  `(div (@ (id ,#"dialog-detail-container-~dialog-id"))
                        (button (@ (class "dialog-detail-button button")
@@ -205,26 +178,48 @@
                  (if (string=? type "portal") (show-portal) ())
                  )))))
 
+(define (render-portal await data-id dest)
+  `(div (@ (class "columns"))
+        (div (@ (class "column"))
+             ,(fas-icon/ "walking") " " ,dest " "
+             ,(map
+               (^[row]
+                 (let ((loc (vector-ref row 0)))
+                   `(,(fas-icon/ "map-marker-alt")
+                     (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                        ,loc))))
+               (query* await
+                       '(SELECT DISTINCT "location" FROM "dialogs"
+                                WHERE "type" = "portal"
+                                AND "trigger" = ?)
+                       dest)))))
+
+(define (render-dialog-header data-id label loc type trigger ord
+                              additioanl-elements)
+  `(div (@ (class "columns is-vcentered"))
+        ,@additioanl-elements
+        (div (@ (class "column is-1 pt-0"))
+             (a (@ (class "button is-white anchor")
+                   (href ,#"#label-~label"))
+                ,(fas-icon/ "anchor")))
+        (div (@ (class "column pt-0"))
+             (h4 (@ (class "title is-4"))
+                 ,(icon-for-type type) " " ,label))
+        (div (@ (class "column is-3 pt-0"))
+             (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                   ,loc)
+                ,(fas-icon/ "caret-right") ,trigger))
+        (div (@ (class "column is-1 pt-0"))
+             (p (@ (class "has-text-grey"))
+                "0x" ,(number->string ord 16)))))
+
 (define (render-dialog/full await conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
 
   (define (show-portal)
     (define dest (get "portal-destination"))
-    `(div (@ (class "columns"))
-          (div (@ (class "column"))
-               ,(fas-icon/ "walking") " " ,dest " "
-               ,(map
-                 (^[row]
-                   (let ((loc (vector-ref row 0)))
-                     `(,(fas-icon/ "map-marker-alt")
-                       (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                          ,loc))))
-                 (query* await
-                         '(SELECT DISTINCT "location" FROM "dialogs"
-                                  WHERE "type" = "portal"
-                                  AND "trigger" = ?)
-                         dest)))))
+    (render-portal await data-id dest))
 
   (let ((dialog-id (get "id"))
         (label     (get "label"))
@@ -234,32 +229,9 @@
         (ord       (get "ord")))
     `((section (@ (class "section") (id ,#"label-~label"))
                ,(container/
-                 `(div (@ (class "columns is-vcentered"))
-                       ,@additioanl-elements
-                       (div (@ (class "column is-1 pt-0"))
-                            (a (@ (class "button is-white anchor")
-                                  (href ,#"#label-~label"))
-                               ,(fas-icon/ "anchor")))
-                       (div (@ (class "column pt-0"))
-                            (h4 (@ (class "title is-4"))
-                                ,(icon-for-type type) " " ,label))
-                       (div (@ (class "column is-3 pt-0"))
-                            (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
-                                  ,loc)
-                               ,(fas-icon/ "caret-right") ,trigger))
-                       (div (@ (class "column is-1 pt-0"))
-                            (p (@ (class "has-text-grey"))
-                               "0x" ,(number->string ord 16))))
-
-
+                 (render-dialog-header data-id label loc type trigger ord
+                                       additioanl-elements)
                  (render-dialog-detail-by-dialog-id await dialog-id)
-
-
-
-
-
-
-
                  (if (string=? type "portal") (show-portal) ())
                  )))))
 
