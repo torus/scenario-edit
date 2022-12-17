@@ -168,17 +168,23 @@ document.querySelectorAll('a.anchor').forEach(e => {
 
 document.querySelectorAll('button.dialog-detail-button').forEach(e => {
   const [_, scenario_id, dialog_id] = e.id.match(/dialog-detail-(\d+)-(\d+)/)
-  e.addEventListener('click', ev => {
+  const proc = () => {
     const request = new XMLHttpRequest()
-    console.log('clicked', scenario_id, dialog_id)
     request.open('GET', `/scenarios/${scenario_id}/dialog-details/${dialog_id}`)
     request.onload = () => {
       const elem = document.querySelector(`#dialog-detail-container-${dialog_id}`)
-      console.log(elem)
       elem.innerHTML = request.response
     }
     request.send()
+  }
+  e.addEventListener('click', proc)
+
+  // automatic load
+  const obs = new IntersectionObserver((entries) => {
+    if (entries[0].intersectionRatio <= 0) return
+    proc()
   })
+  obs.observe(e)
 })
 
 update_title_by_hash()
