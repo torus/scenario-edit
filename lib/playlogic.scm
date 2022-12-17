@@ -197,7 +197,7 @@
                    (ok/bare req
                             (sxml:sxml->html
                              (render-dialog-detail-by-dialog-id
-                              await dialog-id))
+                              await id dialog-id))
                             )))))
 
   (define-http-handler #/^\/static\/gameassets\/.*\.jpg$/

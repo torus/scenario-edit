@@ -124,14 +124,18 @@
                  (href ,#"/scenarios/~|data-id|/edit/~|escaped-label|#form"))
               ,(fas-icon/ "edit"))))))
 
-(define (render-dialog-detail-by-dialog-id await dialog-id)
+(define (render-dialog-detail-by-dialog-id await data-id dialog-id)
   (let ((detail (read-dialog-detail-by-dialog-id await dialog-id "")))
-    (render-dialog-details (cdr (assoc "flags-required" detail))
+    (render-dialog-details await data-id
+                           (cdr (assoc "flags-required" detail))
                            (cdr (assoc "flags-exclusive" detail))
                            (cdr (assoc "flags-set" detail))
-                           (cdr (assoc "lines" detail)))))
+                           (cdr (assoc "lines" detail))
+                           (cdr (safe-assoc "portal-destination" detail)))))
 
-(define (render-dialog-details flags-req flags-exc flags-set lines)
+(define (render-dialog-details await data-id
+                               flags-req flags-exc flags-set lines destination)
+
   `((div (@ (class "columns"))
          (div (@ (class "column is-one-third pt-0"))
               ,(intersperse
@@ -149,15 +153,15 @@
                 (map (^f `(span (@ (class "tag is-info")) ,f))
                      flags-set))))
 
-    ,(render-lines lines)))
+    ,(render-lines lines)
+    ,@(if (> (string-length destination) 0)
+          (list (render-portal await data-id destination))
+          ())
+    ))
 
 (define (render-dialog await conv data-id . additioanl-elements)
   (define (get name)
     (cdr (assoc name conv)))
-
-  (define (show-portal)
-    (define dest (get "portal-destination"))
-    (render-portal await data-id dest))
 
   (let ((dialog-id (get "id"))
         (label     (get "label"))
@@ -174,8 +178,6 @@
                        (button (@ (class "dialog-detail-button button")
                                   (id ,#"dialog-detail-~|data-id|-~dialog-id"))
                                "読み込み"))
-
-                 (if (string=? type "portal") (show-portal) ())
                  )))))
 
 (define (render-portal await data-id dest)
@@ -231,8 +233,7 @@
                ,(container/
                  (render-dialog-header data-id label loc type trigger ord
                                        additioanl-elements)
-                 (render-dialog-detail-by-dialog-id await dialog-id)
-                 (if (string=? type "portal") (show-portal) ())
+                 (render-dialog-detail-by-dialog-id await data-id dialog-id)
                  )))))
 
 (define (render-dialog/markdown await conv data-id)
@@ -621,7 +622,16 @@
             results)))
 
 (define (read-dialog-detail-by-dialog-id await dialog-id type)
-  `(("lines" .
+  `(,@(if (string=? type "portal")
+          `(("portal-destination" .
+             ,(car (map (^[row] (vector-ref row 0))
+                        (query* await
+                                '(SELECT "destination"
+                                         FROM "portals"
+                                         WHERE "dialog_id" = ?)
+                                dialog-id)))))
+          ())
+    ("lines" .
      ,(map-to <vector>
               (^[row]
                 (read-line-from-db await row))
@@ -669,15 +679,6 @@
       ("location" . ,loc)
       ("trigger" . ,trigger)
       ("ord" . ,ord)
-      ,@(if (string=? typ "portal")
-            `(("portal-destination" .
-               ,(car (map (^[row] (vector-ref row 0))
-                          (query* await
-                                  '(SELECT "destination"
-                                           FROM "portals"
-                                           WHERE "dialog_id" = ?)
-                                  dialog-id)))))
-            ())
       )))
 
 (define (read-dialog-detail-from-db/full await row)
