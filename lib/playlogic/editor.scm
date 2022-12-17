@@ -125,7 +125,7 @@
               ,(fas-icon/ "edit"))))))
 
 (define (render-dialog-detail-by-dialog-id await dialog-id)
-  (let ((detail #?=(read-dialog-detail-by-dialog-id await #?=dialog-id "")))
+  (let ((detail (read-dialog-detail-by-dialog-id await dialog-id "")))
     (render-dialog-details (cdr (assoc "flags-required" detail))
                            (cdr (assoc "flags-exclusive" detail))
                            (cdr (assoc "flags-set" detail))
@@ -172,15 +172,12 @@
                                   AND "trigger" = ?)
                          dest)))))
 
-  (let ((label     (get "label"))
-        (lines     (get "lines"))
+  (let ((dialog-id (get "id"))
+        (label     (get "label"))
         (loc       (get "location"))
         (type      (get "type"))
         (trigger   (get "trigger"))
-        (ord       (get "ord"))
-        (flags-req (get "flags-required"))
-        (flags-exc (get "flags-exclusive"))
-        (flags-set (get "flags-set")))
+        (ord       (get "ord")))
     `((section (@ (class "section") (id ,#"label-~label"))
                ,(container/
                  `(div (@ (class "columns is-vcentered"))
@@ -199,9 +196,72 @@
                        (div (@ (class "column is-1 pt-0"))
                             (p (@ (class "has-text-grey"))
                                "0x" ,(number->string ord 16))))
-                 (render-dialog-details flags-req flags-exc flags-set lines)
+
+                 `(div (@ (id ,#"dialog-detail-container-~dialog-id"))
+                       (button (@ (class "dialog-detail-button button")
+                                  (id ,#"dialog-detail-~|data-id|-~dialog-id"))
+                               "読み込み"))
+
                  (if (string=? type "portal") (show-portal) ())
-)))))
+                 )))))
+
+(define (render-dialog/full await conv data-id . additioanl-elements)
+  (define (get name)
+    (cdr (assoc name conv)))
+
+  (define (show-portal)
+    (define dest (get "portal-destination"))
+    `(div (@ (class "columns"))
+          (div (@ (class "column"))
+               ,(fas-icon/ "walking") " " ,dest " "
+               ,(map
+                 (^[row]
+                   (let ((loc (vector-ref row 0)))
+                     `(,(fas-icon/ "map-marker-alt")
+                       (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                          ,loc))))
+                 (query* await
+                         '(SELECT DISTINCT "location" FROM "dialogs"
+                                  WHERE "type" = "portal"
+                                  AND "trigger" = ?)
+                         dest)))))
+
+  (let ((dialog-id (get "id"))
+        (label     (get "label"))
+        (loc       (get "location"))
+        (type      (get "type"))
+        (trigger   (get "trigger"))
+        (ord       (get "ord")))
+    `((section (@ (class "section") (id ,#"label-~label"))
+               ,(container/
+                 `(div (@ (class "columns is-vcentered"))
+                       ,@additioanl-elements
+                       (div (@ (class "column is-1 pt-0"))
+                            (a (@ (class "button is-white anchor")
+                                  (href ,#"#label-~label"))
+                               ,(fas-icon/ "anchor")))
+                       (div (@ (class "column pt-0"))
+                            (h4 (@ (class "title is-4"))
+                                ,(icon-for-type type) " " ,label))
+                       (div (@ (class "column is-3 pt-0"))
+                            (p (a (@ (href ,#"/scenarios/~|data-id|/locations/~loc"))
+                                  ,loc)
+                               ,(fas-icon/ "caret-right") ,trigger))
+                       (div (@ (class "column is-1 pt-0"))
+                            (p (@ (class "has-text-grey"))
+                               "0x" ,(number->string ord 16))))
+
+
+                 (render-dialog-detail-by-dialog-id await dialog-id)
+
+
+
+
+
+
+
+                 (if (string=? type "portal") (show-portal) ())
+                 )))))
 
 (define (render-dialog/markdown await conv data-id)
   (define (get name)
@@ -223,12 +283,12 @@
 
   (define (icon-for-type/markdown type)
     (case (string->symbol type)
-       ((portal)       " :walking: ")
-       ((inspection)   " :mag: ")
-       ((conversation) " :speech_balloon: ")
-       ((area)         " :black_square_button: ")
-       ((message)      " :pager: ")
-       (else           " :question: ")))
+      ((portal)       " :walking: ")
+      ((inspection)   " :mag: ")
+      ((conversation) " :speech_balloon: ")
+      ((area)         " :black_square_button: ")
+      ((message)      " :pager: ")
+      (else           " :question: ")))
 
   (define (render-lines/markdown lines)
     (reverse
@@ -257,52 +317,52 @@
 
   (define markdown-content
     (let ((label     (get "label"))
-        (lines     (get "lines"))
-        (loc       (get "location"))
-        (type      (get "type"))
-        (trigger   (get "trigger"))
-        (ord       (get "ord"))
-        (flags-req (get "flags-required"))
-        (flags-exc (get "flags-exclusive"))
-        (flags-set (get "flags-set")))
-    `("### " ,(icon-for-type/markdown type) " " ,label " ("
-      ,loc " > " ,trigger ")\n\n"
+          (lines     (get "lines"))
+          (loc       (get "location"))
+          (type      (get "type"))
+          (trigger   (get "trigger"))
+          (ord       (get "ord"))
+          (flags-req (get "flags-required"))
+          (flags-exc (get "flags-exclusive"))
+          (flags-set (get "flags-set")))
+      `("### " ,(icon-for-type/markdown type) " " ,label " ("
+        ,loc " > " ,trigger ")\n\n"
 
-      ,(if (> (vector-length flags-req) 0)
-           `(
-             "**要求フラグ** "
-             ,(intersperse " " (vector->list flags-req))
-             "\n"
-             )
-           ())
+        ,(if (> (vector-length flags-req) 0)
+             `(
+               "**要求フラグ** "
+               ,(intersperse " " (vector->list flags-req))
+               "\n"
+               )
+             ())
 
-      ,(if (> (vector-length flags-exc) 0)
-           `(
-      "**排他フラグ** "
-      ,(intersperse " " (vector->list flags-exc))
-      "\n"
-             )
-           ())
+        ,(if (> (vector-length flags-exc) 0)
+             `(
+               "**排他フラグ** "
+               ,(intersperse " " (vector->list flags-exc))
+               "\n"
+               )
+             ())
 
-      ,(if (> (vector-length flags-set) 0)
-           `(
-      "**設定フラグ** "
-      ,(intersperse " " (vector->list flags-set))
-      "\n"
-             )
-           ())
+        ,(if (> (vector-length flags-set) 0)
+             `(
+               "**設定フラグ** "
+               ,(intersperse " " (vector->list flags-set))
+               "\n"
+               )
+             ())
 
-      "\n"
+        "\n"
 
-      ,(if (string=? type "portal") (show-portal) ())
-      ,(render-lines/markdown lines)
-      "\n\n"
-      )))
+        ,(if (string=? type "portal") (show-portal) ())
+        ,(render-lines/markdown lines)
+        "\n\n"
+        )))
   markdown-content
   )
 
 (define (overwrite-markdown-file await id)
-  (let ((content (read-dialogs-from-db await id)))
+  (let ((content (read-dialogs-from-db/full await id)))
     (with-output-to-file (markdown-file-path id)
       (^[]
         (write-tree
@@ -573,6 +633,21 @@
             (cut read-dialog-detail-from-db await <>)
             results)))
 
+(define (read-dialogs-from-db/full await id . additional-filter)
+  (let ((results (query* await
+                         `(SELECT "dialog_id" |,| "label" |,| "location"
+                                  |,| "type" |,| "ord" |,| "trigger"
+                                  FROM "dialogs"
+                                  WHERE "scenario_id" = ?
+                                  ,@(if (pair? additional-filter)
+                                        `(AND ,additional-filter)
+                                        ())
+                                  ORDER BY "ord")
+                         id)))
+    (map-to <vector>
+            (cut read-dialog-detail-from-db/full await <>)
+            results)))
+
 (define (read-dialog-detail-by-dialog-id await dialog-id type)
   `(("lines" .
      ,(map-to <vector>
@@ -606,15 +681,7 @@
                                WHERE "dialog_id" = ?)
                       dialog-id)))
 
-    ,@(if (string=? type "portal")
-          `(("portal-destination" .
-             ,(car (map (^[row] (vector-ref row 0))
-                        (query* await
-                                '(SELECT "destination"
-                                         FROM "portals"
-                                         WHERE "dialog_id" = ?)
-                                dialog-id)))))
-          ()))
+    )
   )
 
 (define (read-dialog-detail-from-db await row)
@@ -630,9 +697,22 @@
       ("location" . ,loc)
       ("trigger" . ,trigger)
       ("ord" . ,ord)
+      ,@(if (string=? typ "portal")
+            `(("portal-destination" .
+               ,(car (map (^[row] (vector-ref row 0))
+                          (query* await
+                                  '(SELECT "destination"
+                                           FROM "portals"
+                                           WHERE "dialog_id" = ?)
+                                  dialog-id)))))
+            ())
+      )))
 
-      ,@(read-dialog-detail-by-dialog-id await dialog-id typ)
-)))
+(define (read-dialog-detail-from-db/full await row)
+  (append (read-dialog-detail-from-db await row)
+          (read-dialog-detail-by-dialog-id await
+                                           (vector-ref row 0)
+                                           (vector-ref row 3))))
 
 (define (read-flags-from-db await row)
   (let ((flag (vector-ref row 0)))
@@ -706,7 +786,7 @@
     (reverse
      (fold (^[conv rest]
              (let ((label (cdr (assoc "label" conv))))
-               (cons (render-dialog await conv id)
+               (cons (render-dialog/full await conv id)
                      rest)))
            ()
            content))))
@@ -754,7 +834,7 @@
                                    (type "hidden")
                                    (value ,label)))))
 
-  (let ((content (read-dialogs-from-db await id)))
+  (let ((content (read-dialogs-from-db/full await id)))
     (reverse
      (fold (^[conv rest]
              (let ((label (cdr (assoc "label" conv))))
@@ -952,7 +1032,7 @@
              ((#(title)) title)
              (()         "Untitled"))))
 
-  (let ((dialogs-json (read-dialogs-from-db await data-id))
+  (let ((dialogs-json (read-dialogs-from-db/full await data-id))
         (locations-json (get-location-names))
         (title (get-title)))
     (overwrite-json-file await
@@ -1248,7 +1328,7 @@
              (match row
                     (#(typ trg)
                      `(button (@ (class "button"))
-                                ,(icon-for-type typ) " " (span ,trg)))))
+                              ,(icon-for-type typ) " " (span ,trg)))))
            triggers)))
 
   (let ((content (read-dialogs-from-db await data-id "location" '= loc))

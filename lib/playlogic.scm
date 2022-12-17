@@ -32,6 +32,9 @@
                         (sxml:sxml->html
                          (apply create-page/title title&elements)))))
 
+(define (ok/bare req element)
+  (respond/ok req element))
+
 (define (create-error-page e)
   (cons "<!DOCTYPE html>"
         (sxml:sxml->html
@@ -185,6 +188,17 @@
      (^[await req app]
        (let-params req ([id "p:1"])
          (ok* req (render-location-graph await id))))))
+
+  (define-http-handler #/^\/scenarios\/(\d+)\/dialog-details\/(\d+)$/
+    (handle-request
+     (^[await req app]
+       (let-params req ([id "p:1"]
+                        [dialog-id "p:2" :convert x->integer])
+                   (ok/bare req
+                            (sxml:sxml->html
+                             (render-dialog-detail-by-dialog-id
+                              await dialog-id))
+                            )))))
 
   (define-http-handler #/^\/static\/gameassets\/.*\.jpg$/
     (handle-request/no-auth
