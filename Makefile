@@ -20,5 +20,8 @@ check:
 en:
 	gosh conv-en.scm
 
+zh:
+	gosh conv-en.scm --language zh-Hant
+
 update-en:
 	gosh update-en.scm
