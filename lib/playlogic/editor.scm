@@ -1579,7 +1579,7 @@
 
   (query* await '(BEGIN TRANSACTION))
   (guard (e [else (report-error e)
-                  (query* await '("ROLLBACK"))
+                  (query* await '(ROLLBACK))
                   (print #"Transaction failed!")
                   "FAIL!"])
          (let ((rset
