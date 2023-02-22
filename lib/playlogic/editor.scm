@@ -886,7 +886,7 @@
                        (guard (e [else (report-error e)])
                               (construct-json modified-for-unreal))
                        (flush)))
-                   (sys-system #"jq '[.[] | {Name,\"label\",type,location,trigger,\"flags-required\",\"flags-exclusive\",\"flags-set\",lines:[.lines[]|{character,text,options}]} ]' < ~tmpfile > ~filename"))
+                   (sys-system #"jq '[.[] | {Name,\"label\",type,location,trigger,\"flags-required\",\"flags-exclusive\",\"flags-set\",\"portal-destination\",lines:[.lines[]|{character,text,options}]} ]' < ~tmpfile > ~filename"))
                :directory "json")
              'done))))
 
