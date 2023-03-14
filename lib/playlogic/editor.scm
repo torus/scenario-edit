@@ -1226,9 +1226,10 @@
             `(SELECT DISTINCT "d2" |.| "location"
                      FROM "dialogs" "d1" |,| "dialogs" "d2" |,| "portals" "p"
                      WHERE "d1" |.| "label" = ?
+                     AND "d1" |.| "scenario_id" = ?
                      AND "p" |.| "dialog_id" = "d1" |.| "dialog_id"
                      AND "p" |.| "destination" = "d2" |.| "trigger")
-            label)))
+            label (x->number data-id))))
       (map
        (^[row]
          (let ((loc (vector-ref row 0)))
