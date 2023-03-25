@@ -254,6 +254,7 @@
                      "fe"
                      ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
                      WHERE "d" |.| "location" = ,loc
+                     AND "d" |.| "scenario_id" = ,data-id
                      AND "fr" |.| "flag" IS NULL
                      AND "fe" |.| "flag" IS NULL
                      ORDER BY "type")))
@@ -508,6 +509,7 @@
                      "fe"
                      ON "d" |.| "dialog_id" = "fe" |.| "dialog_id"
                      WHERE "d" |.| "location" = ,loc
+                     AND "d" |.| "scenario_id" = ,data-id
                      AND "fr" |.| "flag" IS NULL
                      AND "fe" |.| "flag" IS NULL
                      ORDER BY "type")))
