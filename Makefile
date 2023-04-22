@@ -4,7 +4,8 @@ BUILT:
 	rh1 install > $@ || (rm -f $@ ; exit 1)
 
 run: BUILT
-	nodemon -e scm --ignore gosh-modules/ --exec violet $(SCRIPT)
+	while (true); do (violet $(SCRIPT)); echo sleeping...; sleep 5; done
+#	nodemon -e scm --ignore gosh-modules/ --exec violet $(SCRIPT)
 
 clean:
 	rm -rf *~ *.o gosh-modules
