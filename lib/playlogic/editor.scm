@@ -66,6 +66,7 @@
                 (crossorigin "anonymous")) ""))
     (body
      ,@children
+     (div (@ (style "height: 100vh")))
      (script (@ (src "/static/script.js")) "")))
   )
 
