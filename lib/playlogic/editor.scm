@@ -784,8 +784,23 @@
                         `(input (@ (id "ord-input")
                                    (type "hidden")
                                    (value ,ord)))))
-
-  (new-form ord))
+  (let ((content (read-dialogs-from-db await id)))
+    (reverse
+     (let-values (((result inserted?)
+                   (fold2 (^[conv rest inserted?]
+                            (let ((next-ord (cdr (assoc "ord" conv))))
+                              (if (and (not inserted?) (> next-ord ord))
+                                  (values (cons (render-dialog await conv id)
+                                                (cons (new-form ord) rest))
+                                          #t)
+                                  (values (cons (render-dialog await conv id) rest)
+                                          inserted?))))
+                          () #f
+                          content)))
+       (if inserted?
+           result
+           (cons (new-form ord) result))
+       ))))
 
 (define (read-and-render-scenario-file/edit await id label-to-edit)
   (define (new-form conv label)
@@ -794,7 +809,7 @@
                                    (type "hidden")
                                    (value ,label)))))
 
-  (let ((content (read-dialogs-from-db/full await id "label" '= label-to-edit)))
+  (let ((content (read-dialogs-from-db/full await id)))
     (reverse
      (fold (^[conv rest]
              (let ((label (cdr (assoc "label" conv))))
