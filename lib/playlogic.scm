@@ -13,7 +13,7 @@
   (use playlogic.play)
   (use playlogic.datastore)
 
-  (use web-session)
+;  (use web-session)
 
   (add-load-path "./playlogic" :relative)
   (use bulma-utils)
