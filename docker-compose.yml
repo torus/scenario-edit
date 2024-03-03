@@ -14,6 +14,6 @@ services:
       - "2222"
     env_file: playlogic.env
 networks:
-   default:
-      external:
-         name: nginxproxy_default
+  default:
+    name: nginxproxy_default
+    external: true
