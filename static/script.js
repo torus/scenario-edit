@@ -18,7 +18,7 @@ function submit(arg) {
             return {text: text, "flags-required": flags_req, "jump-to": jump}
         }).filter(val => val)
 
-        if (lineinput.value.length > 0)
+        if (lineinput.value.length > 0 || options.length > 0)
             return {character: charinput.value, text: lineinput.value, options}
         else
             return null
