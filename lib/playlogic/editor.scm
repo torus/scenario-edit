@@ -62,6 +62,9 @@
      (title ,title)
      (link (@ (rel "stylesheet")
               (href "https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css")))
+     (link (@ (rel "icon")
+	      (type "image/x-icon")
+	      (href "/static/favicon.ico")))
      (script (@ (src "https://kit.fontawesome.com/515fd4f349.js")
                 (crossorigin "anonymous")) ""))
     (body
