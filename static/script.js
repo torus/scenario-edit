@@ -137,11 +137,14 @@ function update_title_by_hash(anchor) {
     if (!a.hash)
         return
 
-    const elem = document.querySelector(decodeURI(a.hash))
-    console.log('update_title_by_hash', elem)
-    if (elem) {
-        const title = elem.querySelector('h4').innerText.trim()
-        document.title = title
+    const hash = decodeURI(a.hash)
+    const m = hash.match(/^#(.*)$/)
+    if (m) {
+	const elem = document.querySelector(`[id="${m[1]}"]`)
+	if (elem) {
+            const title = elem.querySelector('h4').innerText.trim()
+            document.title = title
+	}
     }
 }
 
