@@ -90,6 +90,18 @@ function on_line_plus_button_clicked(ev) {
     return false
 }
 
+function on_line_insert_button_clicked(elem) {
+    return function (ev) {
+	console.log("plus line")
+	const orig = document.querySelector("#hidden-field > div")
+	console.log(orig)
+	const newelem = orig.cloneNode(true)
+        setup_line_form(newelem)
+	elem.before(newelem)
+	return false
+    }
+}
+
 function on_add_option_button_clicked(ev) {
     console.log(ev)
 }
@@ -102,6 +114,9 @@ function setup_line_form(elem) {
               .cloneNode(true)
         container.append(new_elem)
     })
+
+    const insert_button = elem.querySelector(".insert-line-button")
+    insert_button.addEventListener("click", on_line_insert_button_clicked(elem))
 }
 
 function setup_form(form) {
@@ -141,9 +156,13 @@ function update_title_by_hash(anchor) {
     const m = hash.match(/^#(.*)$/)
     if (m) {
 	const elem = document.querySelector(`[id="${m[1]}"]`)
+	console.log(`id: ${m[1]}`, elem)
 	if (elem) {
-            const title = elem.querySelector('h4').innerText.trim()
-            document.title = title
+	    const h4 = elem.querySelector('h4')
+	    if (h4) {
+		const title = h4.innerText.trim()
+		document.title = title
+	    }
 	}
     }
 }

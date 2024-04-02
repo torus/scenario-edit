@@ -403,7 +403,18 @@
         ))
 
 (define (render-line-form char text options)
+  (define (insert-line-button)
+    `(div (@ (class "columns"))
+          (div (@ (class "column"))
+               (div (@ (class "field has-text-centered"))
+                    (a (@ (class "button insert-line-button"))
+                       ,(fas-icon/ "comment")
+                       (span (@ (style "margin-left: 0.5ex"))"セリフを挿入"))))))
+
   `((div (@ (class "line-form"))
+
+	 ,(insert-line-button)
+
          (div (@ (class "columns"))
               (div (@ (class "column is-one-fifth"))
                    (input (@ (class "input character-input")
