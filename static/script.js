@@ -174,7 +174,8 @@ if (form)
 if (/\/play\/\d+$/.test(location.href)) {
     const link = document.querySelector('a[trigger="#description"]')
     console.log(link)
-    link.click()
+    if (link)
+	link.click()
 } else {
     const link = document.querySelector('a[trigger="#description"]')
     if (link) {
@@ -210,5 +211,13 @@ document.querySelectorAll('button.dialog-detail-button').forEach(e => {
 })
 
 update_title_by_hash()
+
+const session_elem = document.querySelector('#play-session-json')
+if (session_elem) {
+    session_elem.addEventListener('click', ev => {
+	const prom = navigator.clipboard.writeText(session_elem.innerText)
+	prom.then(console.log('COPIED!'))
+    })
+}
 
 console.log("hello")

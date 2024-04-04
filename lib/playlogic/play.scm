@@ -65,17 +65,21 @@
   (let ((session (parse-json-string session-string)))
     (hash-table-put! *session-table* (x->string session-id) session)))
 
+(define (session-json-string await session)
+  (await
+   (^[]
+     (call-with-process-io
+      "jq ." (^[iport oport]
+               (construct-json session oport)
+               (close-port oport)
+               (let ((formatted (port->string iport)))
+                 formatted))))))
+
+(define (get-session session-id)
+  (hash-table-get *session-table* session-id #f))
+
 (define (play-show-session await data-id session-id)
-  (define session (hash-table-get *session-table* session-id #f))
-  (define (json-string)
-    (await
-     (^[]
-       (call-with-process-io
-        "jq ." (^[iport oport]
-                 (construct-json session oport)
-                 (close-port oport)
-                 (let ((formatted (port->string iport)))
-                   formatted))))))
+  (define session (get-session session-id))
 
   (define (cancel-btn)
     `(div (@ (class "control"))
@@ -89,7 +93,7 @@
            (div (@ (class "field"))
                 (textarea (@ (class "textarea")
                              (name  "session"))
-                          ,(json-string)))
+                          ,(session-json-string await session)))
            (div (@ (class "field is-grouped"))
                 ,(cancel-btn)
                 (div (@ (class "control"))
@@ -128,6 +132,9 @@
                                             await data-id loc)))))
                         (div (@ (class "column")) ""))
                    ,content
+
+		   (pre (@ (id "play-session-json"))
+			,(session-json-string await (get-session session-id)))
                    ))))))
 
 (define (play-game! await data-id session-id)
