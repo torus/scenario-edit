@@ -13,8 +13,6 @@
   (use playlogic.play)
   (use playlogic.datastore)
 
-;  (use web-session)
-
   (add-load-path "./playlogic" :relative)
   (use bulma-utils)
 
@@ -46,20 +44,7 @@
                  (pre ,(report-error e #f))))))))
 
 (define (handle-request proc)
-  (if (get-environment-variable "NOAUTH")
-      (handle-request/no-auth proc)
-      (^[req app]
-        (violet-async
-         (^[await]
-           (guard (e [else (report-error e)
-                           (respond/ng req 500 :body (create-error-page e))])
-                  (let ((sess (request-cookie-ref req "sessionid")))
-                    (if (and sess (valid-session-id? await *sqlite-conn*
-                                                     (cadr sess)))
-                        (begin
-                          (session-add-cookie! req (cadr sess))
-                          (proc await req app))
-                        (respond/redirect req "/twitauth")))))))))
+  (handle-request/no-auth proc))
 
 (define (handle-request/no-auth proc)
   (^[req app]
@@ -82,7 +67,6 @@
             `(ul (li (a (@ (href "/scenarios/1")) "Scenario #1"))
                  (li (a (@ (href "/scenarios/2")) "Scenario #2"))
                  (li (a (@ (href "/scenarios/3")) "Scenario #3"))
-                 (li (a (@ (href "/twitauth")) "Login with Twitter"))
                  (li (a (@ (href "/admin/setup")) "Setup"))))))))
 
   (define-http-handler #/^\/scenarios\/(\d+)$/
@@ -281,18 +265,6 @@
          (respond/redirect
           req #"/scenarios/~|id|/play/~|session-id|/session")
          ))))
-
-  (define-http-handler "/twitauth"
-    (handle-request/no-auth
-     (^[await req app]
-       (ok req "Login with Twitter"
-           (session-show-login-page await *sqlite-conn* req)))))
-
-  (define-http-handler "/twcallback"
-    (handle-request/no-auth
-     (^[await req app]
-       (ok req "Login with Twitter"
-           (session-verify-auth await *sqlite-conn* req)))))
 
   (set! (random-data-seed) (sys-time))
   (datastore-connect!))

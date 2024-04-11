@@ -15,9 +15,6 @@
 (import playlogic.play)
 (test-module 'playlogic.play)
 
-(import web-session)
-(test-module 'web-session)
-
 (import playlogic.datastore)
 (test-module 'playlogic.datastore)
 

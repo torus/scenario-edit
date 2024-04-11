@@ -783,12 +783,6 @@
 (define (json-file-path data-id)
   #"json/~|data-id|.json")
 
-(define (dialog-json-file-path data-id)
-  #"json/~|data-id|-dialogs.json")
-
-(define (triggermap-json-file-path data-id)
-  #"json/~|data-id|-triggermap.json")
-
 (define (markdown-file-path data-id)
   #"markdown/~|data-id|.md")
 
@@ -888,22 +882,6 @@
                  (sys-system #"jq '. | del(.dialogs[].id) | del(.dialogs[].ord) | del(.dialogs[].lines[].id) | del(.dialogs[].lines[].ord)' < ~tmpfile > ~filename"))
              :directory "json")
            'done)))
-
-(define (overwrite-dialog-json-file await dialogs-json filename)
-  (let ((modified-for-unreal
-         (map-to <vector>
-                 (^e (acons "Name" (cdr (assoc "label" e)) e)) dialogs-json)))
-    (await (^[]
-             (call-with-temporary-file
-                 (^[port tmpfile]
-                   (with-output-to-port port
-                     (^[]
-                       (guard (e [else (report-error e)])
-                              (construct-json modified-for-unreal))
-                       (flush)))
-                   (sys-system #"jq '[.[] | {Name,\"label\",type,location,trigger,\"flags-required\",\"flags-exclusive\",\"flags-set\",\"portal-destination\",lines:[.lines[]|{character,text,options}]} ]' < ~tmpfile > ~filename"))
-               :directory "json")
-             'done))))
 
 (define (delete-dialog await dialog-id)
   (query* await
@@ -1032,37 +1010,7 @@
                          (json-file-path data-id))
 
     (overwrite-markdown-file await data-id)
-
-    (overwrite-dialog-json-file await dialogs-json
-                                (dialog-json-file-path data-id))
-
-    (let ((dialog-port (open-output-file "csv/Dialogs.csv"))
-          (line-port (open-output-file "csv/Dialogs_lines.csv"))
-          (option-port (open-output-file "csv/Dialogs_options.csv"))
-          (flag-port (open-output-file "csv/Dialogs_flags.csv"))
-          (triggermap-port (open-output-file "csv/Dialogs_triggermap.csv"))
-          (portal-port (open-output-file "csv/Dialogs_portals.csv")))
-      (json-match dialogs-json
-                  (write-with-csv-writers line-port option-port
-                                          dialog-port flag-port
-                                          triggermap-port portal-port))
-
-      (for-each close-port (list line-port option-port dialog-port
-                                 flag-port triggermap-port portal-port)))
     "Conversion done!")
-
-  (let ((trigger-map (make-triggermap-from-db await data-id))
-        (filename (triggermap-json-file-path data-id)))
-    (call-with-temporary-file
-        (^[port tmpfile]
-          (with-output-to-port port
-            (^[]
-              (guard (e [else (report-error e)])
-                     (construct-json trigger-map))
-              (flush)))
-          (sys-system #"jq '.' < ~tmpfile > ~filename"))
-      :directory "json"))
-
   "Done!")
 
 (define (make-triggermap-from-db await data-id)
