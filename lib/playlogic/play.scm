@@ -124,13 +124,6 @@
                    ,(show-game-state await data-id session-id session
                                      cur-dialog-id))
               (div (@ (class "column"))
-                   (div (@ (class "columns"))
-                        (div (@ (class "column")) "")
-                        (div (@ (class "column is-9")
-                                (style "max-height: 800px"))
-                             (img (@ (src ,(location-image-url
-                                            await data-id loc)))))
-                        (div (@ (class "column")) ""))
                    ,content
 
 		   (pre (@ (id "play-session-json"))
@@ -249,6 +242,7 @@
             `(SELECT "d" |.| "dialog_id"
                      |,| "d" |.| "type"
                      |,| "d" |.| "trigger"
+                     |,| "d" |.| "label"
                      FROM "dialogs" "d"
                      LEFT OUTER JOIN
                      (SELECT * FROM "flags_required" WHERE "flag" NOT IN
@@ -283,7 +277,7 @@
           ,(fas-icon/ "walking")
           (span ,#" ~new-location へ"))))
 
-  (define (show-option dialog-id trigger icon)
+  (define (show-option dialog-id trigger icon label)
     `(a (@ (class "button is-primary")
            (href
             ,#"/scenarios/~|data-id|/play/~|session-id|/dialogs/~dialog-id")
@@ -291,7 +285,7 @@
                  `((class "is-active"))
                  ())
            (trigger ,trigger))
-        ,icon (span ,#" ~trigger")))
+         ,icon (strong (@ (class "mr-2")) ,trigger) (span ,label)))
 
   (define (render-general-options)
     (let loop ((data (get-data loc (vector->list (json-query session '("flags")))))
@@ -317,7 +311,8 @@
              (^[]
                (let ((dialog-id (vector-ref row 0))
                      (type      (vector-ref row 1))
-                     (trigger   (vector-ref row 2)))
+                     (trigger   (vector-ref row 2))
+                     (label     (vector-ref row 3)))
                  (case (string->symbol type)
                    ((portal)
                     (loop (cdr data)
@@ -327,7 +322,7 @@
                     (loop (cdr data)
                           (cons
                            (show-option dialog-id trigger
-                                        (icon-for-type type)) options)
+                                        (icon-for-type type) label) options)
                           moves))))))))))
 
   (render-general-options))
