@@ -36,6 +36,7 @@
           set-ascii-name
           create-page/title
           escape-label
+          render-json
 
           read-dialog-detail-from-db
           read-dialog-detail-from-db/full
@@ -73,7 +74,52 @@
      (script (@ (src "/static/script.js")) "")))
   )
 
+(define (render-json json)
+  (define (mono str)
+    `(span (@ (class "is-family-code has-text-weight-bold")) ,str))
+  (cond ((string? json) `(,(mono "\"") ,json ,(mono "\"")))
+        ((number? json) (number->string json))
+        ((eq? json #f) `(code "false"))
+        ((eq? json #t) `(code "true"))
+        ((pair? json) `(,(mono "{")
+                        ,(let loop ((json json))
+                           (if (null? json)
+                               ()
+                               (cons `((span (@ (class "tag is-info is-light"))
+                                             ,(caar json))
+                                       ,(mono ": ")
+                                       ,(render-json (cdar json)))
+                                     `(,(mono ", ")
+                                       ,(loop (cdr json))))))
+                        ,(mono "}")))))
+
 (define (render-line char text options)
+  (define (render-jump label)
+    `((a (@ (href ,#"#label-~label"))
+         ,(fas-icon/ "arrow-circle-right")
+         (span ,#" ~label"))))
+
+  (define (render-text text)
+    (define (render-payload event payload)
+      (case event
+        ((jump jumpBlack)
+         (if (string? payload)
+             (render-jump payload)
+             "ERROR"))
+        (else (render-json payload)
+         #;`(code ,(construct-json-string payload))))
+      )
+    (let ((m (rxmatch #/^#ev:(\w+)(:(.*))?/ text)))
+      (if m
+          `((span (@ (class "tag is-primary")) (strong "#ev"))
+            " "
+            (code ,(m 1))
+            ,(if (m 3)
+                 `(" " ,(render-payload (string->symbol (m 1))
+                                        (parse-json-string (m 3))))
+                 ()))
+          text)))
+
   (define (render-option o)
     `(li ,(fas-icon/ "angle-right")
          ,(cdr (assoc "text" o)) " "
@@ -94,7 +140,7 @@
                   `(strong ,char)
                   ""))
         (div (@ (class "column pt-0"))
-             ,text
+             ,(render-text text)
              ,(if (null? options)
                   ()
                   `(ul
