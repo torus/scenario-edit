@@ -1,3 +1,5 @@
+// -*- mode: javascript; js-indent-level: 4 -*-
+
 function submit(arg) {
     console.log("submit", arg)
     const line_divs = Array.from(document.querySelectorAll('.line-form'))
