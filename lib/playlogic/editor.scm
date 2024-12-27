@@ -109,7 +109,7 @@
         (else (render-json payload)
          #;`(code ,(construct-json-string payload))))
       )
-    (let ((m (rxmatch #/^#ev:(\w+)(:(.*))?/ text)))
+    (let ((m (rxmatch #/^#ev:([^:]+)(:(.*))?/ text)))
       (if m
           `((span (@ (class "tag is-primary")) (strong "#ev"))
             " "
