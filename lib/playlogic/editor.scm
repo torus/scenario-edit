@@ -37,6 +37,7 @@
           create-page/title
           escape-label
           render-json
+          render-line-text
 
           read-dialog-detail-from-db
           read-dialog-detail-from-db/full
@@ -93,6 +94,32 @@
                                        ,(loop (cdr json))))))
                         ,(mono "}")))))
 
+(define (render-line-text text render-jump)
+  (define (render-payload event payload)
+    (case event
+      ((jump jumpBlack)
+       (if (string? payload)
+           (render-jump payload)
+           "ERROR"))
+      (else (render-json payload)
+            #;`(code ,(construct-json-string payload))))
+    )
+  (let ((m (rxmatch #/^#ev:([^:]+)(:(.*))?/ text)))
+    (if m
+        `((span (@ (class "tag is-primary")) (strong "#ev"))
+          " "
+          (code ,(m 1))
+          ,(if (m 3)
+               `(" " ,(guard (e [else
+                                 `(span (@ (class "tag is-warning is-medium"))
+                                        ,(fas-icon/ "exclamation-triangle")
+                                        "JSON Parse Error!"
+                                        ,(fas-icon/ "exclamation-triangle"))])
+                             (render-payload (string->symbol (m 1))
+                                             (parse-json-string (m 3)))))
+               ()))
+        text)))
+
 (define (render-line char text options)
   (define (render-jump label)
     `((a (@ (href ,#"#label-~label"))
@@ -100,30 +127,7 @@
          (span ,#" ~label"))))
 
   (define (render-text text)
-    (define (render-payload event payload)
-      (case event
-        ((jump jumpBlack)
-         (if (string? payload)
-             (render-jump payload)
-             "ERROR"))
-        (else (render-json payload)
-         #;`(code ,(construct-json-string payload))))
-      )
-    (let ((m (rxmatch #/^#ev:([^:]+)(:(.*))?/ text)))
-      (if m
-          `((span (@ (class "tag is-primary")) (strong "#ev"))
-            " "
-            (code ,(m 1))
-            ,(if (m 3)
-                 `(" " ,(guard (e [else
-                                   `(span (@ (class "tag is-warning is-medium"))
-                                          ,(fas-icon/ "exclamation-triangle")
-                                          "JSON Parse Error!"
-                                          ,(fas-icon/ "exclamation-triangle"))])
-                               (render-payload (string->symbol (m 1))
-                                               (parse-json-string (m 3)))))
-                 ()))
-          text)))
+    (render-line-text text render-jump))
 
   (define (render-option o)
     `(li ,(fas-icon/ "angle-right")
