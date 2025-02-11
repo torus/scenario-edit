@@ -1608,12 +1608,10 @@
                         id)))
            (for-each
             (^[row]
-              (await
-               (^[]
-                 (let ((dialog-id (vector-ref row 0)))
-                   (print #"Found dialog ~|dialog-id| to delete.")
-                   (delete-dialog await dialog-id)
-                   ))))
+              (let ((dialog-id (vector-ref row 0)))
+                (print #"Found dialog ~|dialog-id| to delete.")
+                (delete-dialog await dialog-id)
+                ))
             rset))
 
          (let ((json (read-scenario-file await id)))
