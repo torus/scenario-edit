@@ -972,17 +972,11 @@
   (define last-order 0)
   (for-each
    (^[row]
-     (await
-      (^[]
-        (let ((dialog-id (vector-ref row 0))
-              (ord (vector-ref row 1)))
-          (print #"Found dialog ~|dialog-id| to delete.")
-
-          (delete-dialog await dialog-id)
-
-          (set! last-order ord)
-
-          ))))
+     (let ((dialog-id (vector-ref row 0))
+           (ord (vector-ref row 1)))
+       (print #"Found dialog ~|dialog-id| to delete.")
+       (delete-dialog await dialog-id)
+       (set! last-order ord)))
    (query* await
            '(SELECT "dialog_id" |,| "ord" FROM "dialogs"
                     WHERE "label" = ? AND "scenario_id" = ?)
