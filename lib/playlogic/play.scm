@@ -153,7 +153,7 @@
   (define (get name)
     (cdr (assoc name conv)))
 
-  (define (last-line-has-no-jump-options? dialog-id)
+  #;(define (last-line-has-no-jump-options? dialog-id)
     (let ((non-jumps
            (query* await
                    '(SELECT COUNT (*) FROM
@@ -231,7 +231,8 @@
 
       ,@(render-lines await data-id session-id lines)
 
-      ,@(if (last-line-has-no-jump-options? dialog-id)
+      ,(list (render-options await data-id session-id loc dialog-id))
+      #;,@(if (last-line-has-no-jump-options? dialog-id)
             ()
             (list (render-options await data-id session-id loc dialog-id))))
     ))
