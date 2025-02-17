@@ -385,12 +385,22 @@
                            options))))))
 
 (define (render-lines await data-id session-id lines)
+  (define session (get-session session-id))
+
+  (define (option-available? o)
+    (let ((req-flags (cdr (safe-assoc-vec "flags-required" o)))
+          (flags (list->set string-comparator
+                            (vector->list (json-query session '("flags"))))))
+      (let ((missing-flags (filter (^f (not (set-contains? flags f))) req-flags)))
+        (null? missing-flags))))
+
   (reverse
    (fold (^[line rest]
            (let ((char (cdr (assoc "character" line)))
                  (text (cdr (assoc "text" line)))
-                 (options (let ((opt (assoc "options" line)))
-                            (if opt (cdr opt) ()))))
+                 (options (filter option-available?
+                                  (let ((opt (assoc "options" line)))
+                                    (if opt (cdr opt) ())))))
              (cons (render-line await data-id session-id char text options)
                    rest)))
          () lines)))
