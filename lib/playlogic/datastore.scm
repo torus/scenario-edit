@@ -40,6 +40,7 @@
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS scenarios ("
                         "  scenario_id INTEGER PRIMARY KEY"
                         ", title       TEXT NOT NULL"
+                        ", language    TEXT NOT NULL"
                         ")"))
   (execute-query-tree '("CREATE TABLE IF NOT EXISTS dialogs ("
                         "  dialog_id   INTEGER PRIMARY KEY"

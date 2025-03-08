@@ -660,7 +660,7 @@
                   (span (@ (style "margin-left: 0.5ex"))"会話を追加"))))))
 
 (define (read-scenario-file await id)
-  (await (^[] (with-input-from-file (json-file-path id) parse-json))))
+  (await (^[] (with-input-from-file (json-file-path await id) parse-json))))
 
 (define (read-dialogs-from-db await id . additional-filter)
   (let ((results (query* await
@@ -835,8 +835,19 @@
            ()
            content))))
 
-(define (json-file-path data-id)
-  #"json/~|data-id|.json")
+(define (json-file-path await data-id)
+  (let ((basename
+         (let ((results
+               (query* await
+                       '(SELECT "title" |,| "language"
+                                FROM  "scenarios"
+                                WHERE "scenario_id" = ?
+                                LIMIT 1)
+                       data-id)))
+          (match results
+                 ((#(title language)) #"~|title|-~|language|")
+                 (()         "Untitled")))))
+    #"json/~|basename|.json"))
 
 (define (markdown-file-path data-id)
   #"markdown/~|data-id|.md")
@@ -884,46 +895,45 @@
            content))))
 
 (define (scenario-page-header await id)
-  (let ((title (match
-                (query* await '(SELECT "title" FROM "scenarios"
-                                       WHERE "scenario_id" = ?) id)
-                ((#(title)) title)
-                (() "Untitled Scenario"))))
-    (navbar/
-     await id
-     title
-     `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
-           (div (@ (class "navbar-start"))
-                (a (@ (class "navbar-item")
-                      (href ,#`"/scenarios/,|id|"))
-                   ,(fas-icon/ "home") (span "Home"))
-                (a (@ (class "navbar-item")
-                      (href ,#`"/scenarios/,|id|/locations"))
-                   ,(fas-icon/ "map-marked-alt") (span "Locations"))
-                (a (@ (class "navbar-item")
-                      (href ,#`"/scenarios/,|id|/view/"))
-                   ,(fas-icon/ "eye") (span "View Mode"))
-                (a (@ (class "navbar-item"))
-                   (div (@ (class "buttons"))
-                        (a (@ (class "button is-primary")
-                              (href ,#`"/scenarios/,|id|/play/,*session-id*"))
-                           ,(fas-icon/ "gamepad") (span "Play")))))
+  (match-let
+   (((#(title language))
+     (query* await '(SELECT "title" |,| "language" FROM "scenarios"
+                            WHERE "scenario_id" = ?) id)))
+   (navbar/
+    await id
+    #"~title [~language]"
+    `(div (@ (id "playlogic-navbar") (class "navbar-menu"))
+          (div (@ (class "navbar-start"))
+               (a (@ (class "navbar-item")
+                     (href ,#`"/scenarios/,|id|"))
+                  ,(fas-icon/ "home") (span "Home"))
+               (a (@ (class "navbar-item")
+                     (href ,#`"/scenarios/,|id|/locations"))
+                  ,(fas-icon/ "map-marked-alt") (span "Locations"))
+               (a (@ (class "navbar-item")
+                     (href ,#`"/scenarios/,|id|/view/"))
+                  ,(fas-icon/ "eye") (span "View Mode"))
+               (a (@ (class "navbar-item"))
+                  (div (@ (class "buttons"))
+                       (a (@ (class "button is-primary")
+                             (href ,#`"/scenarios/,|id|/play/,*session-id*"))
+                          ,(fas-icon/ "gamepad") (span "Play")))))
 
-           (div (@ (class "navbar-end"))
-                (div (@ (class "navbar-item has-dropdown is-hoverable"))
-                     (a (@ (class "navbar-link"))
-                        ,(fas-icon/ "hammer")
-                        (span "Admin"))
-                     (div (@ (class "navbar-dropdown is-right"))
-                          (a (@ (class "navbar-item")
-                                (href ,#`"/scenarios/,|id|/update-csv"))
-                             ,(fas-icon/ "save")
-                             (span "Update CSV/JSON/Markdown"))
-                          (a (@ (class "navbar-item")
-                                (href ,#`"/scenarios/,|id|/convert"))
-                             ,(fas-icon/ "skull-crossbones")
-                             (span "Convert from JSON"))
-                          )))))))
+          (div (@ (class "navbar-end"))
+               (div (@ (class "navbar-item has-dropdown is-hoverable"))
+                    (a (@ (class "navbar-link"))
+                       ,(fas-icon/ "hammer")
+                       (span "Admin"))
+                    (div (@ (class "navbar-dropdown is-right"))
+                         (a (@ (class "navbar-item")
+                               (href ,#`"/scenarios/,|id|/update-csv"))
+                            ,(fas-icon/ "save")
+                            (span "Update CSV/JSON/Markdown"))
+                         (a (@ (class "navbar-item")
+                               (href ,#`"/scenarios/,|id|/convert"))
+                            ,(fas-icon/ "skull-crossbones")
+                            (span "Convert from JSON"))
+                         )))))))
 
 (define (overwrite-json-file await new-json filename)
   (await (^[]
@@ -1048,15 +1058,29 @@
              ((#(title)) title)
              (()         "Untitled"))))
 
+  (define (get-language)
+    (let ((results
+           (query* await
+                   '(SELECT "language"
+                            FROM  "scenarios"
+                            WHERE "scenario_id" = ?
+                            LIMIT 1)
+                   data-id)))
+      (match results
+             ((#(title)) title)
+             (()         "nolang"))))
+
   (let ((dialogs-json (read-dialogs-from-db/full await data-id))
         (locations-json (get-location-names))
-        (title (get-title)))
+        (title (get-title))
+        (language (get-language)))
     (overwrite-json-file await
                          `(("version" . "1.0")
                            ("title" . ,title)
+                           ("language" . ,language)
                            ("locations" . ,locations-json)
                            ("dialogs" . ,dialogs-json))
-                         (json-file-path data-id))
+                         (json-file-path await data-id))
 
     (overwrite-markdown-file await data-id)
     "Conversion done!")
@@ -1571,9 +1595,10 @@
 
   (define (put-title json)
     (query* await
-            '(INSERT OR REPLACE INTO "scenarios" ("scenario_id" |,| "title")
-                     VALUES (? |,| ?))
-            id (json-query json '("title"))))
+            '(INSERT OR REPLACE INTO "scenarios"
+                     ("scenario_id" |,| "title" |,| "language")
+                     VALUES (? |,| ? |,| ?))
+            id (json-query json '("title")) (json-query json '("language"))))
 
   (define (put-ascii-names json)
     (when (> (vector-length (json-query json '("locations"))) 0)
